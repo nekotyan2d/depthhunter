@@ -8,6 +8,11 @@ interface Window {
 
             initData: string;
             initDataUnsafe: object;
+            SettingsButton: {
+                isVisible: boolean;
+            };
+
+            onEvent: (event: string, callback: (data: any) => void) => void;
         };
     };
 }
