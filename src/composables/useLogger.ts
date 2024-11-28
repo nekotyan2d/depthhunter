@@ -1,24 +1,28 @@
 export const useLogger = () => {
     const log = (message: string) => {
-        console.log(`[LOG]: ${message}`);
+        console.log(`[LOG] [${time()}]: ${message}`);
     };
 
     const error = (message: string) => {
-        console.error(`[ERROR]: ${message}`);
+        console.error("%c[ERROR]", "color: red", `[${time()}]: ${message}`);
     };
 
     const warn = (message: string) => {
-        console.warn(`[WARN]: ${message}`);
+        console.warn("%c[WARN]", "color: orange", `[${time()}]: ${message}`);
     };
 
     const info = (message: string) => {
-        console.info(`[INFO]: ${message}`);
+        console.info("%c[INFO]", "color: #3f6fff", `[${time()}]: ${message}`);
     };
 
     return {
         log,
         error,
         warn,
-        info
+        info,
     };
-}
+};
+
+const time = () => {
+    return new Date().toISOString();
+};
