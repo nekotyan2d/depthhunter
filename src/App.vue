@@ -1,29 +1,40 @@
 <template>
-    <main>
-		<RouterView/>
-	</main>
-	<BottomBar/>
-    <Error v-if="app.$state.fatalError.occurred" :error="{message: app.$state.fatalError.message}"/>
+    <!-- <template v-if="app.$state.fatalError.occurred">
+        <ErrorPage :error="{message: app.$state.fatalError.message}"/>
+    </template>
+    <template v-else> -->
+        <main>
+            <RouterView/>
+        </main>
+        <BottomBar/>
+    <!-- </template> -->
 </template>
 
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
+import { RouterView, useRouter } from 'vue-router';
 import BottomBar from './components/BottomBar.vue';
 
 import { useSocketsStore } from './stores/sockets';
-import { useAppStore } from './stores/app.ts';
+import { useAppStore } from './stores/app';
+import { useGameStore } from './stores/game';
 
 import { useLogger } from './composables/useLogger';
-import Error from './components/App/Error.vue';
+import ErrorPage from './pages/error.vue';
 
 const sockets = useSocketsStore();
 const app = useAppStore();
+const game = useGameStore();
 
 const logger = useLogger();
+const router = useRouter();
 
 async function initTelegramApp() {
     try {
         const tg = window.Telegram.WebApp;
+        tg.SettingsButton.isVisible = true;
+        tg.onEvent("settingsButtonClicked", () => {
+            router.push('/settings');
+        });
         tg.ready();
 
         const initData = tg.initData || '';
@@ -56,32 +67,8 @@ async function verifyWithServer(initData: string) {
     }
 }
 
-function loadTextures(){
-    const blocks = {
-        '1': { url: 'texture/stone.png' },
-        '2': { url: 'texture/coal_ore.png' },
-        '3': { url: 'texture/iron_ore.png' },
-        '4': { url: 'texture/redstone_ore.png' },
-        '5': { url: 'texture/gold_ore.png' },
-        '6': { url: 'texture/lapis_ore.png' },
-        '7': { url: 'texture/diamond_ore.png' },
-        '8': { url: 'texture/emerald_ore.png' },
-        '9': { url: 'texture/oak_log_top.png' },
-        '10': { url: 'texture/cobblestone.png' },
-        '11': { url: 'texture/oak_planks.png' },
-        'destroy_stage_0': { url: 'texture/destroy_stage_0.png' },
-        'destroy_stage_1': { url: 'texture/destroy_stage_1.png' },
-        'destroy_stage_2': { url: 'texture/destroy_stage_2.png' },
-        'destroy_stage_3': { url: 'texture/destroy_stage_3.png' },
-        'destroy_stage_4': { url: 'texture/destroy_stage_4.png' },
-        'destroy_stage_5': { url: 'texture/destroy_stage_5.png' },
-        'destroy_stage_6': { url: 'texture/destroy_stage_6.png' },
-        'destroy_stage_7': { url: 'texture/destroy_stage_7.png' },
-        'destroy_stage_8': { url: 'texture/destroy_stage_8.png' },
-        'destroy_stage_9': { url: 'texture/destroy_stage_9.png' }
-    };
-
-}
+logger.info('Начало загрузки текстур');
+game.loadTextures().then(() => logger.info('Текстуры загружены'));
 
 window.onload = () => initTelegramApp();
 </script>
