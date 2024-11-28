@@ -1,0 +1,16 @@
+:root {
+    color-scheme: var(--tg-color-scheme);
+    --color-bg: var(--tg-theme-bg-color);
+    --color-text: var(--tg-theme-text-color);
+    --color-hint: var(--tg-theme-hint-color);
+    --color-link: var(--tg-theme-link-color);
+    --color-btn: var(--tg-theme-button-color);
+    --color-btn-text: var(--tg-theme-button-text-color);
+    --color-bg-secondary: var(--tg-theme-secondary-bg-color);
+    --color-header-bg: var(--tg-theme-header-bg-color);
+    --color-text-accent: var(--tg-theme-accent-text-color);
+    --color-section-bg: var(--tg-theme-section-bg-color);
+    --color-section-header-text: var(--tg-theme-section-header-text-color);
+    --color-text-subtitle: var(--tg-theme-subtitle-text-color);
+    --color-text-destructive: var(--tg-theme-destructive-text-color);
+}
