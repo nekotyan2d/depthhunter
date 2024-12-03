@@ -8,15 +8,13 @@ import App from "./App.vue";
 import { createPinia } from "pinia";
 const pinia = createPinia();
 
-import IndexPage from "./pages/index.vue";
 import ChatPage from "./pages/chat.vue";
-import GamePage from "./pages/game.vue";
+import GamePage from "./pages/index.vue";
 import SettingsPage from "./pages/settings.vue";
 
 const routes = [
-    { path: '/', component: IndexPage},
     { path: '/chat', component: ChatPage},
-    { path: '/game', component: GamePage},
+    { path: '/', component: GamePage},
     { path: '/settings', component: SettingsPage},
 ]
 
