@@ -1,125 +1,74 @@
 <template>
-    <canvas ref="canvas" width="1000" height="1000"></canvas>
+    <div class="map">
+        <canvas ref="canvas" id="map" @mousedown="onCanvasClick"></canvas>
+        <div class="coordinates" v-if="game.currentPlayer">{{ game.currentPlayer.x }}:{{ game.currentPlayer.z }}</div>
+    </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
+
+import { useGameStore } from '../stores/game';
+import { storeToRefs } from 'pinia';
+
+const game = useGameStore();
+const { scaleSize, mapSize } = storeToRefs(game);
+const { draw, onCanvasClick } = game;
 
 const canvas = ref<HTMLCanvasElement | null>(null);
-const ctx = ref<CanvasRenderingContext2D | null>(null);
-
-const isPressing = ref(false);
-const startTime = ref(0); // время начала нажатия
-const startBlock = ref<Block | null>(null); // начальный блок
-const clampInterval = ref<NodeJS.Timeout | null>(null); // интервал для зажатия
-const blockSize = 200; // размер блока
-
-interface Block {
-    x: number;
-    y: number;
-}
 
 onMounted(() => {
     if (!canvas.value) return;
 
-    ctx.value = canvas.value.getContext('2d');
-    if (!ctx) return;
+    resizeCanvas();
 
-    canvas.value.addEventListener('mousedown', startPress);
-    canvas.value.addEventListener('mousemove', movePress);
-    canvas.value.addEventListener('mouseup', endPress);
-
-    canvas.value.addEventListener('touchstart', (event) => {
-        event.preventDefault();
-        startPress(event);
-    });
-    canvas.value.addEventListener('touchmove', (event) => {
-        event.preventDefault();
-        movePress(event);
-    });
-    canvas.value.addEventListener('touchend', endPress);
+    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("wheel", updateScale);
 })
 
-function clicking(block: Block) {
-    console.log(`Вызов функции clicking() на блоке: ${JSON.stringify(block)}`);
-}
+onUnmounted(() => {
+    window.removeEventListener("resize", resizeCanvas);
+    window.removeEventListener("wheel", updateScale);
+})
 
-function clamping(block: Block) {
-    console.log(`Вызов функции clamping() на блоке: ${JSON.stringify(block)}`);
-}
-
-function getCanvasCoordinates(event: TouchEvent | MouseEvent) {
-    const rect = canvas.value!.getBoundingClientRect();
-    const scaleX = canvas.value!.width / rect.width;
-    const scaleY = canvas.value!.height / rect.height;
-
-    let clientX, clientY;
-
-    if(event instanceof TouchEvent) {
-        clientX = event.touches[0].clientX;
-        clientY = event.touches[0].clientY;
+function updateScale(event: WheelEvent){
+    if(event.deltaY > 0) {
+        scaleSize.value += 1;
     } else {
-        clientX = event.clientX;
-        clientY = event.clientY;
+        scaleSize.value -= 1;
     }
 
-    return {
-        x: Math.floor((clientX - rect.left) * scaleX),
-        y: Math.floor((clientY - rect.top) * scaleY)
-    }
+    scaleSize.value = Math.max(2, Math.min(scaleSize.value, 8));
+
+    draw();
 }
 
-function getBlockIndex(x: number, y: number) {
-    return {
-        x: Math.floor(x / blockSize),
-        y: Math.floor(y / blockSize)
-    }
-}
+function resizeCanvas() {
+    if (canvas.value == null) return;
 
-function startPress(event: TouchEvent | MouseEvent){
-    if(isPressing.value) return;
+    const size = Math.min(document.documentElement.clientWidth, window.innerHeight - 60);
+    canvas.value.width = size;
+    canvas.value.height = size;
 
-    isPressing.value = true;
-    startTime.value = performance.now();
-    const { x, y } = getCanvasCoordinates(event);
-    startBlock.value = getBlockIndex(x, y);
+    mapSize.value = size;
 
-    clampInterval.value = setInterval(() => {
-        clampInterval.value = setInterval(() => clamping(startBlock.value!), 500)
-        clamping(startBlock.value!);
-    }, 500);
-}
-
-function movePress(event: TouchEvent | MouseEvent){
-    if(!isPressing.value) return;
-
-    const { x, y } = getCanvasCoordinates(event);
-    const currentBlock = getBlockIndex(x, y);
-
-    if(currentBlock.x !== startBlock.value!.x || currentBlock.y !== startBlock.value!.y) {
-        finishPress(event);
-    }
-}
-
-function finishPress(event: TouchEvent | MouseEvent){
-    const duration = performance.now() - startTime.value;
-    const pressType = duration > 500 ? 'clamping' : 'clicking';
-
-    if(clampInterval.value) {
-        clearInterval(clampInterval.value);
-        clampInterval.value = null;
-    }
-
-    if(pressType === 'clicking') {
-        clicking(startBlock.value!);
-    }
-
-    isPressing.value = false;
-    startBlock.value = null;
-}
-
-function endPress(event: TouchEvent | MouseEvent){
-    if(!isPressing.value) return;
-    finishPress(event);
+    draw();
 }
 
 </script>
+
+<style lang="scss" scoped>
+.map {
+    display: flex;
+    position: relative;
+}
+canvas {
+    border: 1.5px solid red;
+    margin: 0 auto;
+}
+
+.coordinates {
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+</style>

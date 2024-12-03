@@ -4,7 +4,7 @@
             <Icon icon="material-symbols:chat-outline-rounded" height="1.1rem" width="1.1rem"/>
             <span>Чат</span>
         </RouterLink>
-        <RouterLink class="link" to="/game" active-class="active">
+        <RouterLink class="link" to="/" active-class="active">
             <Icon icon="material-symbols:gamepad-outline-rounded" height="1.1rem" width="1.1rem"/>
             <span>Игра</span>
         </RouterLink>

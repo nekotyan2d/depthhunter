@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 import { useLogger } from "../composables/useLogger";
+import eventBus from "../utils/eventBus";
 const logger = useLogger();
 
 export const useSocketsStore = defineStore("sockets", () => {
@@ -14,7 +15,10 @@ export const useSocketsStore = defineStore("sockets", () => {
         connection.value.onopen = () => {
             logger.info("Подключено");
         };
-
+        connection.value.onmessage = async (event) => {
+            logger.info(event.data);
+            eventBus.emit("serverMessage", JSON.parse(event.data));
+        }
         connection.value.onclose = () => {
             logger.info("Отключено");
             connection.value = null;
@@ -22,7 +26,6 @@ export const useSocketsStore = defineStore("sockets", () => {
     };
 
     const close = () => {
-        logger.info("Отключено");
         connection.value?.close();
         connection.value = null;
     };
@@ -33,7 +36,6 @@ export const useSocketsStore = defineStore("sockets", () => {
             return;
         }
         connection.value.send(JSON.stringify(message));
-        logger.info("Данные отправлены");
     };
 
     return {

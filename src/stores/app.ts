@@ -7,6 +7,8 @@ export const useAppStore = defineStore("app", () => {
         message: ""
     })
 
+    const isLoading = ref(true);
+
     const showFatalError = (error: Error, hide?: boolean) => {
         if(hide){
             fatalError.value.occurred = false;
@@ -20,6 +22,7 @@ export const useAppStore = defineStore("app", () => {
 
     return {
         fatalError,
-        showFatalError
+        showFatalError,
+        isLoading
     }
 })
