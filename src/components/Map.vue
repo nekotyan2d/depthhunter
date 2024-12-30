@@ -1,57 +1,80 @@
 <template>
     <div class="map">
-        <canvas ref="canvas" id="map" @mousedown="onCanvasClick"></canvas>
         <div class="coordinates" v-if="game.currentPlayer">{{ game.currentPlayer.x }}:{{ game.currentPlayer.z }}</div>
     </div>
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import * as THREE from "three";
 
 import { useGameStore } from '../stores/game';
 import { storeToRefs } from 'pinia';
 
-const game = useGameStore();
-const { scaleSize, mapSize } = storeToRefs(game);
-const { draw, onCanvasClick } = game;
+import eventBus from '../utils/eventBus';
 
-const canvas = ref<HTMLCanvasElement | null>(null);
+const game = useGameStore();
+const {scene, camera, renderer, texturesLoaded} = storeToRefs(game);
+
+const BOTTOM_BAR_HEIGHT = 60;
 
 onMounted(() => {
-    if (!canvas.value) return;
+    scene.value = new THREE.Scene();
+    camera.value = new THREE.PerspectiveCamera(100, window.innerWidth / (window.innerHeight - BOTTOM_BAR_HEIGHT), 0.1, 1000);
+    renderer.value = new THREE.WebGLRenderer();
 
-    resizeCanvas();
+    camera.value.position.set(2, 5, 4);
+    camera.value.lookAt(2, 0, 2);
 
-    window.addEventListener("resize", resizeCanvas);
-    window.addEventListener("wheel", updateScale);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+    ambientLight.position.set(0, 1, 0);
+    scene.value.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xfff9c4, 0.1); // Тёплый свет
+    directionalLight.position.set(0, 1, 0); // Источник света сверху
+    directionalLight.castShadow = true; // Источник света создаёт тени
+    // directionalLight.shadow.mapSize.width = 1024; // Размер карты теней
+    // directionalLight.shadow.mapSize.height = 1024;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 20;
+
+    scene.value.add(directionalLight);
+
+    renderer.value.setSize(window.innerWidth, window.innerHeight - BOTTOM_BAR_HEIGHT);
+    const mapElement = document.querySelector(".map");
+
+    if(mapElement){
+        mapElement.appendChild(renderer.value.domElement);
+
+        eventBus.on("texturesLoaded", () => {
+            gameInit();
+            eventBus.off("texturesLoaded");
+        })
+
+        if(texturesLoaded.value){
+            gameInit();
+        }
+    }
+    window.addEventListener("pointerdown", game.onPointerDown);
+    window.addEventListener("pointerup", game.onPointerUp);
+    window.addEventListener("resize", onWindowResize);
 })
 
 onUnmounted(() => {
-    window.removeEventListener("resize", resizeCanvas);
-    window.removeEventListener("wheel", updateScale);
+    window.removeEventListener("pointerdown", game.onPointerDown);
+    window.removeEventListener("pointerup", game.onPointerUp);
+    window.removeEventListener("resize", onWindowResize);
 })
 
-function updateScale(event: WheelEvent){
-    if(event.deltaY > 0) {
-        scaleSize.value += 1;
-    } else {
-        scaleSize.value -= 1;
-    }
-
-    scaleSize.value = Math.max(2, Math.min(scaleSize.value, 8));
-
-    draw();
+function gameInit(){
+    game.initPlatform();
+    game.render();
 }
 
-function resizeCanvas() {
-    if (canvas.value == null) return;
-
-    const size = Math.min(document.documentElement.clientWidth, window.innerHeight - 60);
-    canvas.value.width = size;
-    canvas.value.height = size;
-
-    mapSize.value = size;
-
-    draw();
+function onWindowResize() {
+    if(!(camera.value && renderer.value)) return;
+    camera.value.aspect = window.innerWidth / (window.innerHeight - BOTTOM_BAR_HEIGHT);
+    camera.value.updateProjectionMatrix();
+    renderer.value.setSize(window.innerWidth, window.innerHeight - BOTTOM_BAR_HEIGHT);
 }
 
 </script>
@@ -68,6 +91,7 @@ canvas {
 
 .coordinates {
     position: absolute;
+    user-select: none;
     right: 0;
     top: 0;
 }

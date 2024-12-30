@@ -29,6 +29,7 @@ nav {
     right: 0;
     justify-content: center;
     height: 50px;
+    user-select: none;
 }
 
 .link {

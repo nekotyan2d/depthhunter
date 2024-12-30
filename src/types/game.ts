@@ -1,6 +1,6 @@
 declare global {
     interface Player {
-        uuid: string;
+        nick: string;
         x: number;
         z: number;
     }
@@ -16,12 +16,26 @@ declare global {
         z: number;
     }
 
+    interface Slot {
+        id: number;
+        count: number;
+        damage?: number;
+    }
+
+    interface Drop extends Slot {
+        x: number;
+        z: number;
+    }
+
     interface ServerMessageStart {
         type: "start";
         result: {
             my_self: Player;
             players: {[key: string]: Player};
             chunks: {[key: string]: Chunk};
+            inventory: (Slot | null)[];
+            drops: {x: number, z: number, items: Slot[]}[];
+            hand: Slot | null;
         };
     }
     interface ServerMessageMove {
@@ -32,17 +46,24 @@ declare global {
             escape_players: {[key: string]: Player};
             chunks: {[key: string]: Chunk};
             escape: boolean;
+            drops: {x: number, z: number, items: Drop[]}[];
         };
     }
     interface ServerMessageBreak {
         type: "break";
-        result: number;
+        result: {
+            block: Block;
+            hardness: number;
+            progress: number;
+            broken: boolean;
+            dropped: number | null; // TODO здесь бы задать union идов предметов
+        };
     }
     interface ServerMessageBroken {
         type: "broken";
         result: {
             block: Block;
-            stability: number;
+            hardness: number;
             progress: number;
         };
     }
@@ -51,6 +72,21 @@ declare global {
         result: {
             text: string;
         };
+    }
+    interface ServerMessageInventory {
+        type: "inventory";
+        query_id: number;
+        result: {
+            inventory: (Slot | null)[];
+            hand: Slot | null;
+        }
+    }
+    interface ServerMessageDrop {
+        type: "drop";
+        result: {
+            block: Block;
+            items: Drop[];
+        }
     }
     interface ServerMessageConnectPlayer {
         type: "connect_player";
@@ -76,7 +112,9 @@ declare global {
         | ServerMessageMove
         | ServerMessageBreak
         | ServerMessageBroken
+        | ServerMessageDrop
         | ServerMessageMsg
+        | ServerMessageInventory
         | ServerMessageConnectPlayer
         | ServerMessageDisconnectPlayer
         | ServerMessageError;

@@ -1,29 +1,50 @@
-import { defineStore } from "pinia";
-import { ref } from "vue";
+import { defineStore, storeToRefs } from "pinia";
+import { ref, watch, toRaw } from "vue";
+
+import * as THREE from "three";
 
 import { useLogger } from "../composables/useLogger";
 import { useSocketsStore } from "./sockets";
+import { useAppStore } from "./app";
 
 import eventBus from "../utils/eventBus";
+import Textures from "../game/textures";
 
 const logger = useLogger();
 
 export const useGameStore = defineStore("game", () => {
     const { send } = useSocketsStore();
+    const { fatalError } = storeToRefs(useAppStore());
 
-    const textures = ref<{ [key: string]: HTMLImageElement }>({});
+    const textures = ref<{ [key: string]: THREE.Texture }>({});
 
     const chunks = ref<{[key: string]: Chunk}>({});
     const players = ref<{[key: string]: Player}>({});
+    const drops: {[key: string]: Slot[]} = {};
+    const inventory = ref<(Slot | null)[]>([]);
+
+    const showInventory = ref(false);
+
+    const scene = ref<THREE.Scene | null>(null);
+    const camera = ref<THREE.PerspectiveCamera | null>(null);
+    const renderer = ref<THREE.Renderer | null>(null);
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const textureLoader = new THREE.TextureLoader();
+
+    const dropsGroup = new THREE.Group();
+    dropsGroup.name = "drops";
 
     const currentPlayer = ref<Player | null>(null);
-    let broken = ref<any>(null); // TODO заменить any на Block
+    const broken = ref<ServerMessageBreak["result"] | null>(null);
 
-    const chunkSize = 5;
-    const mapSize = ref(initialMapSize());
-    const scaleSize = ref(7);
+    const CHUNK_SIZE = 5;
 
-    const showChunkBorders = ref(false);
+    const texturesLoaded = ref(false);
+
+    const settings = getSettings();
+    const showChunkBorders = ref(settings.showChunkBorders);
+    const modifyScaleSize = ref(settings.modifyScaleSize);
     
 
     eventBus.on('serverMessage', async (data: ServerMessage) => {
@@ -32,36 +53,18 @@ export const useGameStore = defineStore("game", () => {
 
     async function loadTextures() {
         logger.info("Начало загрузки текстур");
-        const blocks = {
-            "1": { url: "texture/stone.png" },
-            "2": { url: "texture/coal_ore.png" },
-            "3": { url: "texture/iron_ore.png" },
-            "4": { url: "texture/redstone_ore.png" },
-            "5": { url: "texture/gold_ore.png" },
-            "6": { url: "texture/lapis_ore.png" },
-            "7": { url: "texture/diamond_ore.png" },
-            "8": { url: "texture/emerald_ore.png" },
-            "9": { url: "texture/oak_log_top.png" },
-            "10": { url: "texture/cobblestone.png" },
-            "11": { url: "texture/oak_planks.png" },
-            "12": { url: "texture/dirt.png" },
-            "13": { url: "texture/gravel.png" },
-            destroy_stage_0: { url: "texture/destroy_stage_0.png" },
-            destroy_stage_1: { url: "texture/destroy_stage_1.png" },
-            destroy_stage_2: { url: "texture/destroy_stage_2.png" },
-            destroy_stage_3: { url: "texture/destroy_stage_3.png" },
-            destroy_stage_4: { url: "texture/destroy_stage_4.png" },
-            destroy_stage_5: { url: "texture/destroy_stage_5.png" },
-            destroy_stage_6: { url: "texture/destroy_stage_6.png" },
-            destroy_stage_7: { url: "texture/destroy_stage_7.png" },
-            destroy_stage_8: { url: "texture/destroy_stage_8.png" },
-            destroy_stage_9: { url: "texture/destroy_stage_9.png" },
-        };
-        const promises = Object.entries(blocks).map(async ([key, value]) => {
+
+        const promises = Object.entries({...Textures.blocks, ...Textures.players}).map(async ([key, value]) => {
             try {
-                textures.value[key] = await loadImage(value.url);
+                textures.value[key] = await textureLoader.loadAsync(value.url);
+                // фильтры для улучшения текстур
+                textures.value[key].magFilter = THREE.NearestFilter;
+                textures.value[key].minFilter = THREE.NearestFilter;
+
+                textures.value[key].name = key;
             } catch (error) {
                 logger.error(`Не удалось загрузить текстуру: ${value.url}`);
+                throw error;
             }
         });
 
@@ -69,26 +72,216 @@ export const useGameStore = defineStore("game", () => {
         const successfulPromises = results.filter(p => p.status === "fulfilled")
 
         logger.info(`Загружено ${successfulPromises.length} (${(successfulPromises.length / promises.length) * 100}%) текстур`);
+
+        // замена отсутствующих текстур на пурпурно-черную текстуру
+        Object.entries({...Textures.blocks, ...Textures.players}).map(async ([key, value]) => {
+            if(textures.value[key]) return;
+            textures.value[key] = generateBrokenTexture();
+        });
+
+        logger.info(`Исправлено ${promises.length - successfulPromises.length} (${((promises.length - successfulPromises.length) / promises.length) * 100}%) текстур`);
+
         eventBus.emit('texturesLoaded', {
             total: promises.length,
             loaded: successfulPromises.length 
         });
 
+        texturesLoaded.value = true;
+
         return results;
     }
 
-    function loadImage(url: string) {
-        return new Promise<HTMLImageElement>((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = url;
+    let playerMesh: THREE.Mesh | null = null;
+    async function createPlayer(){
+        const playerTexture = textures.value["steve"];
+        
+        playerTexture.magFilter = THREE.NearestFilter;
+        playerTexture.minFilter = THREE.NearestFilter;
+
+        const playerMaterial = new THREE.MeshStandardMaterial({
+            map: playerTexture,
+            transparent: true,
+        });
+        const playerGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
+        playerMesh.castShadow = true;
+        playerMesh.receiveShadow = true;
+        scene.value!.add(playerMesh);
+    }
+
+    function addDropsGroup(){
+        scene.value!.add(dropsGroup);
+    }
+
+    const cubes = new Array<{
+        x: number,
+        z: number,
+        block: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+    }>();
+    
+    // создание чанка (5x5 блоков)
+    function createPlatform(xChunk: number, zChunk: number){
+        const size = 2;
+
+        for(let y = 0; y < 2; y++){
+            for(let z = 0; z < CHUNK_SIZE; z++){
+                const _z = zChunk * CHUNK_SIZE + z - size;
+                for(let x = 0; x < CHUNK_SIZE; x++){
+                    const _x = xChunk * CHUNK_SIZE + x - size;
+                    
+                    const geometry = new THREE.BoxGeometry(1, 1, 1);
+                    const material = new THREE.MeshStandardMaterial({
+                        map: textures.value["1"],
+                        transparent: true
+                    })
+
+                    const block = new THREE.Mesh(geometry, material);
+                    block.name = `block_${_x}_${_z}`;
+
+                    block.castShadow = true;
+                    block.receiveShadow = true;
+
+                    block.position.set(_x + size, y, _z + size);
+
+                    scene.value!.add(block);
+
+                    if(y === 1) cubes.push({x: _x, z: _z, block});
+                }
+            }
+        }
+    }
+    // создание платформы (3x3 чанка)
+    function initPlatform(){
+        for(let i = -1; i <= 1; i++){
+            for(let j = -1; j <= 1; j++){
+                createPlatform(i, j);
+            }
+        }
+        createPlayer();
+        addDropsGroup();
+        createChunkBorders(showChunkBorders.value);
+    }
+
+    let platformCreated = false;
+
+    function updateTextures(){
+        const player = currentPlayer.value;
+
+        if(!player) return;
+
+        const playerX = player.x;
+        const playerZ = player.z;
+
+        cubes.forEach(cube => {
+            const {x: cubeX, z: cubeZ, block} = cube;
+        
+            const x = playerX + cubeX;
+            const z = playerZ + cubeZ;
+
+            const chunkX = Math.floor(x / CHUNK_SIZE);
+            const chunkZ = Math.floor(z / CHUNK_SIZE);
+
+            const key = `${chunkX}:${chunkZ}`;
+            const chunk = chunks.value[key];
+
+            let texture = null;
+            if(chunk){
+                const localBlockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+                const localBlockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+                const coordinates = chunk.chunk[localBlockX][localBlockZ];
+
+                block.userData = { x, z };
+
+                if(coordinates !== 0) {
+                    texture = textures.value[coordinates]
+                    if(!platformCreated){
+                        platformCreated = true;
+                        eventBus.emit("platformCreated", {});
+                        logger.info("Платформа собрана");
+                    }
+                };
+
+                if(broken.value && broken.value.block.x === x && broken.value.block.z === z){
+                    const n = getBreakingStage(broken.value.hardness, broken.value.progress);
+
+                    block.material.alphaMap = textures.value[`destroy_stage_${n}`];
+                }else{
+                    block.material.alphaMap = null;
+                }
+            }
+
+            if(texture){
+                block.visible = true;
+                block.material.map = texture;
+            }else{
+                block.visible = false;
+            }
+
+            block.material.needsUpdate = true;
         });
     }
-    let firstRender = true;
+    
+    function updateDrops(){
+        const player = currentPlayer.value;
+        if (!player) return;
+
+        const playerX = player.x;
+        const playerZ = player.z;
+
+        const playerSceneX = playerMesh!.position.x;
+        const playerSceneZ = playerMesh!.position.z;
+        
+        Object.entries(drops).forEach(([coordinates, chunkDrops]) => {
+            const [x, z] = coordinates.split(":").map(i => parseInt(i));
+
+            const chunkX = Math.floor(x / CHUNK_SIZE);
+            const chunkZ = Math.floor(z / CHUNK_SIZE);
+
+            let chunkDropGroup = dropsGroup.getObjectByName(`chunk_${chunkX}_${chunkZ}`);
+            if(!chunkDropGroup){
+                chunkDropGroup = new THREE.Group();
+                chunkDropGroup.name = `chunk_${chunkX}_${chunkZ}`;
+                dropsGroup.add(chunkDropGroup);
+            }
+
+            const dropX = playerSceneX - (playerX - x);
+            const dropZ = playerSceneZ - (playerZ - z);
+
+            chunkDrops.forEach(drop => {
+                let dropMesh = chunkDropGroup.getObjectByName(`drop_${drop.id}_${x}_${z}`);
+                if(dropMesh) {
+                    dropMesh.position.set(dropX, 0.8, dropZ);
+                    return;
+                };
+
+                const geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+                const material = new THREE.MeshStandardMaterial({
+                    map: textures.value[drop.id.toString()]
+                });
+
+                dropMesh = new THREE.Mesh(geometry, material);
+                dropMesh.position.set(dropX, 0.8, dropZ);
+                dropMesh.name = `drop_${drop.id}_${x}_${z}`;
+
+                chunkDropGroup.add(dropMesh);
+            });
+        });
+
+        dropsGroup.children.forEach(chunkDropGroup => {
+            if(!(chunkDropGroup instanceof THREE.Group)) return;
+            chunkDropGroup.children.forEach(drop => {
+                if(!(drop instanceof THREE.Mesh)) return;
+                drop.rotateY(0.01);
+            });
+        })
+
+    }
+
     const handleServerMessage = async (data: ServerMessage) => {
         if (data.type === 'start') {
             currentPlayer.value = data.result.my_self;
+
+            inventory.value = data.result.inventory;
     
             const players = data.result.players;
             for (const key in players) {
@@ -97,15 +290,13 @@ export const useGameStore = defineStore("game", () => {
                 }
             }
     
-            const chunks = data.result.chunks;
-            for (const key in chunks) {
-                if (chunks.hasOwnProperty(key)) {
-                    addChunk(chunks[key]);
-                }
-            }
+            const serverChunks = data.result.chunks;
+            const drops = data.result.drops;
+
+            addChunks(serverChunks, drops);
         } else if (data.type === 'move') {
             const movedPlayer = data.result.player;
-            if (currentPlayer.value && currentPlayer.value.uuid === movedPlayer.uuid) {
+            if (currentPlayer.value && currentPlayer.value.nick === movedPlayer.nick) {
                 broken.value = null;
     
                 currentPlayer.value = movedPlayer;
@@ -120,24 +311,20 @@ export const useGameStore = defineStore("game", () => {
                 const escape_players = data.result.escape_players;
                 for (const key in escape_players) {
                     if (escape_players.hasOwnProperty(key)) {
-                        deletePlayer(escape_players[key].uuid);
+                        deletePlayer(escape_players[key].nick);
                     }
                 }
     
-                const chunks = data.result.chunks;
-                for (const key in chunks) {
-                    if (chunks.hasOwnProperty(key)) {
-                        addChunk(chunks[key]);
-                    }
-                }
+                const serverChunks = data.result.chunks;
+                const drops = data.result.drops;
+
+                addChunks(serverChunks, drops);
 
                 const playerChunk = getPlayerChunk(movedPlayer);
                 removeOutOfViewChunks(playerChunk);
-
-                draw();
             } else {
                 if (data.result.escape) {
-                    deletePlayer(movedPlayer.uuid);
+                    deletePlayer(movedPlayer.nick);
                 } else {
                     updatePlayer(movedPlayer);
                 }
@@ -146,36 +333,89 @@ export const useGameStore = defineStore("game", () => {
             broken.value = data.result;
     
             if (broken.value.broken) {
+                const x = broken.value.block.x;
+                const z = broken.value.block.z;
+
+                if (broken.value.dropped) {
+                    if (drops[`${x}:${z}`] == undefined) {
+                        drops[`${x}:${z}`] = [];
+                    }
+                    drops[`${x}:${z}`].push({id: broken.value.dropped, count: 1});
+                }
+                
                 await editBlock(broken.value.block.x, broken.value.block.z, 0);
     
                 broken.value = null;
             }
-    
-            await draw();
         } else if (data.type === 'broken') {
             const block = data.result.block;
     
-            if (broken.value.block == block) {
+            if (broken.value && broken.value.block == block) {
+                const x = broken.value.block.x;
+                const z = broken.value.block.z;
+
+                if (broken.value.dropped) {
+                    if (drops[`${x}:${z}`] == undefined) {
+                        drops[`${x}:${z}`] = [];
+                    }
+                    drops[`${x}:${z}`].push({id: broken.value.dropped, count: 1});
+                }
+
                 broken.value = null;
             }
     
             await editBlock(block.x, block.z, 0);
+        } else if(data.type === 'drop'){
+            const x = data.result.block.x;
+            const z = data.result.block.z;
+
+            const items = data.result.items;
+
+            const chunkX = Math.floor(x / CHUNK_SIZE);
+            const chunkZ = Math.floor(z / CHUNK_SIZE);
+
+            const localBlockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            const localBlockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+            if (items.length > 0) {
+                drops[`${x}:${z}`] = items;
+            } else {
+                delete drops[`${x}:${z}`];
+            }
+            
+            const chunkDropGroup = dropsGroup.getObjectByName(`chunk_${chunkX}_${chunkZ}`)!;
+            chunkDropGroup.children.forEach(drop => {
+                if(!(drop instanceof THREE.Mesh)) return;
+                const [id, x, z] = drop.name.split("_").slice(1).map(i => parseInt(i));
+
+                if (!drops[`${x}:${z}`] || (drops[`${x}:${z}`] && drops[`${x}:${z}`].find(d => d.id == id) == undefined)) {
+                    chunkDropGroup.remove(drop);
+                }
+            });
         } else if (data.type === 'msg') {
             logger.log(data.result.text);
+        } else if (data.type === 'inventory') {
+            inventory.value = data.result.inventory;
         } else if (data.type === 'connect_player') {
             updatePlayer(data.result.player);
         } else if (data.type === 'disconnect_player') {
             deletePlayer(data.result.player);
         } else if(data.type == "error"){
             logger.error(data.result.description);
+            switch(data.result.error_code){
+                case "ERR_SESSION_CONFLICT":
+                    fatalError.value.occurred = true;
+                    fatalError.value.message = "Ошибка авторизации: сессия уже используется";
+                    break;
+            }
         }
     };
 
     function removeOutOfViewChunks(playerChunk: Pick<Chunk, 'x' | 'z'>) {
         const visibleChunks = new Set<string>();
     
-        for (let x = -1; x <= 1; x++) {
-            for (let z = -1; z <= 1; z++) {
+        for (let x = -2; x <= 2; x++) {
+            for (let z = -2; z <= 2; z++) {
                 const chunkX = playerChunk.x + x;
                 const chunkZ = playerChunk.z + z;
                 visibleChunks.add(`${chunkX}:${chunkZ}`);
@@ -184,6 +424,9 @@ export const useGameStore = defineStore("game", () => {
     
         for (const key in chunks.value) {
             if (chunks.value.hasOwnProperty(key) && !visibleChunks.has(key)) {
+                const dropChunk = scene.value!.getObjectByName(`chunk_${chunks.value[key].x}_${chunks.value[key].z}`);
+                if(dropChunk) scene.value!.remove(dropChunk);
+
                 delete chunks.value[key];
             }
         }
@@ -193,25 +436,41 @@ export const useGameStore = defineStore("game", () => {
         const x = player.x;
         const z = player.z;
     
-        const chunkX = Math.floor(x / chunkSize);
-        const chunkZ = Math.floor(z / chunkSize);
+        const chunkX = Math.floor(x / CHUNK_SIZE);
+        const chunkZ = Math.floor(z / CHUNK_SIZE);
     
         return {x: chunkX, z: chunkZ};
     }
 
+    async function addChunks(serverChunks: {[key: string]: Chunk}, serverDrops: ServerMessageStart["result"]["drops"]) {
+        for (const key in serverChunks) {
+            if (serverChunks.hasOwnProperty(key)) {
+                const chunk = serverChunks[key];
+                
+                await addChunk(chunk);
+            }
+        }
+
+        for(const drop of serverDrops){
+            const {x, z, items} = drop;
+            if (drops[`${x}:${z}`]) {
+                drops[`${x}:${z}`].push(...items);
+            } else {
+                drops[`${x}:${z}`] = items;
+            }
+        }
+    }
+
     async function addChunk(chunk: Chunk) {
         chunks.value[`${chunk.x}:${chunk.z}`] = chunk;
-        await draw();
     }
     
     async function updatePlayer(player: Player) {
-        players.value[player.uuid] = player;
-        await draw();
+        players.value[player.nick] = player;
     }
     
-    async function deletePlayer(uuid: string) {
-        delete players.value[uuid];
-        await draw();
+    async function deletePlayer(nick: string) {
+        delete players.value[nick];
     }
     
     async function editBlock(x: number, z: number, block: number) {
@@ -225,14 +484,12 @@ export const useGameStore = defineStore("game", () => {
         const blockZ = ((z % 5) + 5) % 5;
     
         chunk.chunk[blockX][blockZ] = block;
-    
-        await draw();
     }
 
     async function getBlock(block: number) {
         const id = block.toString();
         if (!(id in textures.value)) {
-            textures.value[id] = await loadImage(`texture/${id}.png`);
+            textures.value[id] = await textureLoader.loadAsync(`texture/${id}.png`);
         }
         return textures.value[id];
     }
@@ -243,27 +500,116 @@ export const useGameStore = defineStore("game", () => {
         return Math.floor((currentValue / maxValue) * 9);
     }
 
-    function onCanvasClick(event: MouseEvent) {
-        const canvas = getCanvas();
-        if (!canvas) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        const blockCoordinates = getBlockCoordinatesFromClick(x, y);
-        if (blockCoordinates) {
-            const { blockX, blockZ } = blockCoordinates;
-
-            const playerX = currentPlayer.value!.x;
-            const playerZ = currentPlayer.value!.z;
+    function onBlockClick(event: PointerEvent) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / (window.innerHeight - 60)) * 2 + 1;
     
-            if (getBlockMaterial(blockX, blockZ) !== 0 && ((blockX === playerX && Math.abs(blockZ - playerZ) === 1) || 
-                (blockZ === playerZ && Math.abs(blockX - playerX) === 1))) {
-                const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
+        raycaster.setFromCamera(mouse, camera.value!);
+    
+        const intersects = raycaster.intersectObjects(scene.value!.children, true);
 
+        const player = currentPlayer.value;
+        if(!player) return;
+
+        const playerX = player.x;
+        const playerZ = player.z;
+    
+        if (intersects.length > 0) {
+            const drop = intersects.find(i => i.object.name.startsWith("drop"));
+            if(drop){
+                const dropMesh = drop.object;
+                const [id, x, z] = dropMesh.name.split("_").slice(1).map(i => parseInt(i));
+
+                const isNeighbor = (Math.abs(playerX - x) === 1 && playerZ === z) ||
+                               (Math.abs(playerZ - z) === 1 && playerX === x);
+                if(isNeighbor){
+                    const side = getBlockSideFromPlayer(playerX, playerZ, x, z);
+                    send({ type: 'take', data: { side } });
+                }
+                return;
+            }
+
+            // находим ближайший видимый блок
+            const solidBlock = intersects.find(i => i.object.visible);
+            if (!solidBlock) return;
+
+            const intersectedObject = solidBlock.object;
+            const { x, z } = intersectedObject.userData;
+            if(x == undefined || z == undefined) return;
+
+            if(!currentPlayer.value) return;
+
+            const blockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            const blockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+            const chunkX = Math.floor(x / CHUNK_SIZE);
+            const chunkZ = Math.floor(z / CHUNK_SIZE);
+
+            chunks.value[`${chunkX}:${chunkZ}`].chunk[blockX][blockZ] = Math.floor(Math.random() * 10) + 1;
+        }
+    }
+
+    function onBlockPress(event: PointerEvent) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / (window.innerHeight - 60)) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera.value!);
+    
+        const intersects = raycaster.intersectObjects(scene.value!.children, true);
+    
+        if (intersects.length > 0) {
+            // находим ближайший видимый блок
+            const solidBlock = intersects.find(i => i.object.visible);
+            if (!solidBlock) return;
+
+            const intersectedObject = solidBlock.object;
+            const { x, z } = intersectedObject.userData;
+            if(x == undefined || z == undefined) return;
+
+            if(!currentPlayer.value) return;
+
+            const playerX = currentPlayer.value.x;
+            const playerZ = currentPlayer.value.z;
+
+            const blockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            const blockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+            const chunkX = Math.floor(x / CHUNK_SIZE);
+            const chunkZ = Math.floor(z / CHUNK_SIZE);
+
+            const clickedBlock = chunks.value[`${chunkX}:${chunkZ}`].chunk[blockX][blockZ];
+            if(clickedBlock === 0) return;
+
+            const isNeighbor = (Math.abs(playerX - x) === 1 && playerZ === z) ||
+                               (Math.abs(playerZ - z) === 1 && playerX === x);
+            if(isNeighbor){
+                const side = getBlockSideFromPlayer(playerX, playerZ, x, z);
                 send({ type: 'break', data: { side } });
             }
+        }
+    }
+
+    let actionInterval: NodeJS.Timeout | null = null;
+
+    function onPointerDown(event: PointerEvent){
+        if(!(event.target instanceof HTMLCanvasElement)) return;
+
+        actionInterval = setInterval(() => {
+            onBlockPress(event);
+        }, 250);
+        // если игрок кликнул на блок, то ждем 200 мс и если он не отпустил кнопку мыши, то считаем это за удержание (может это можно лучше сделать?)
+        setTimeout(() => {
+            if(actionInterval != null) return;
+            onBlockClick(event);
+        }, 200);
+    }
+
+    function onPointerUp(event: PointerEvent){
+        if(!(event.target instanceof HTMLCanvasElement)) return;
+
+        if(actionInterval != null){
+            clearInterval(actionInterval);
+            actionInterval = null;
         }
     }
 
@@ -284,60 +630,53 @@ export const useGameStore = defineStore("game", () => {
         return 'unknown';
     }
 
-    function getBlockMaterial(blockX: number, blockZ: number): number {
-        const chunkX = Math.floor(blockX / chunkSize);
-        const chunkZ = Math.floor(blockZ / chunkSize);
-        const key = `${chunkX}:${chunkZ}`;
-        const chunk = chunks.value[key];
-    
-        if (!chunk) return 0;
-    
-        const localBlockX = ((blockX % chunkSize) + chunkSize) % chunkSize;
-        const localBlockZ = ((blockZ % chunkSize) + chunkSize) % chunkSize;
-        return chunk.chunk[localBlockX][localBlockZ];
-    }
-
-    function getBlockCoordinatesFromClick(clickX: number, clickY: number) {
-        const player = currentPlayer.value;
-        if (!player) return null;
-    
-        const x = player.x;
-        const z = player.z;
-    
-        const totalBlocks = (2 * scaleSize.value + 1);
-        const squareSize = mapSize.value / totalBlocks;
-    
-        const blockX = Math.floor(clickX / squareSize) - scaleSize.value + x;
-        const blockZ = Math.floor(clickY / squareSize) - scaleSize.value + z;
-    
-        return { blockX, blockZ };
-    }
-
-    function initialMapSize(): number{
-        const bottomBarHeight = 60;
-        const clientWidth = document.documentElement.clientWidth;
-        const clientHeight = window.innerHeight;
-        return Math.min(clientWidth, clientHeight - bottomBarHeight);
-    }
-
-    const steve = loadImage(`texture/steve.png`);
-    const alex = loadImage(`texture/alex.png`);
-
-    function getCanvas() {
-        const canvas = document.querySelector<HTMLCanvasElement>('#map');
-        if(!canvas) {
-            logger.error('Не удалось найти canvas карты');
-            return;
-        }
-        return canvas;
-    }
-
     let lastSentTime = 0;
     const delay = 200;
 
     let action = 'move';
 
+    function getBlockBySide(side: string): number {
+        const player = currentPlayer.value!;
+
+        //if(!player) return -1; //TODO правильно добавить проверку на наличие игрока
+
+        const x = player.x;
+        const z = player.z;
+
+        let blockX = x;
+        let blockZ = z;
+
+        switch (side) {
+            case 'up':
+                blockZ -= 1;
+                break;
+            case 'down':
+                blockZ += 1;
+                break;
+            case 'left':
+                blockX -= 1;
+                break;
+            case 'right':
+                blockX += 1;
+                break;
+            default:
+                return 0;
+        }
+
+        // берем координаты чанка с блоком
+        const chunkX = Math.floor(blockX / CHUNK_SIZE);
+        const chunkZ = Math.floor(blockZ / CHUNK_SIZE);
+
+        // получаем координаты блока относительно массива чанка
+        const localBlockX = ((blockX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+        const localBlockZ = ((blockZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+        return chunks.value[`${chunkX}:${chunkZ}`].chunk[localBlockX][localBlockZ];
+    }
+
     document.addEventListener('keydown', (event) => {
+        if(!currentPlayer.value) return;
+
         const currentTime = Date.now();
         if (currentTime - lastSentTime < delay) {
             return;
@@ -360,141 +699,109 @@ export const useGameStore = defineStore("game", () => {
             case 'KeyQ':
                 action = action == 'move' ? 'break' : 'move'
                 break;
+            case 'KeyE':
+                showInventory.value = !showInventory.value;
+                break
             default:
                 return;
         }
 
         lastSentTime = currentTime;
-        if (side) {
+        if (side && getBlockBySide(side) == 0) {
             const data = { type: action, data: { side } };
             send(data);
         } 
     });
+
+    function getSettings(){
+        const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+        return {
+            showChunkBorders: settings.showChunkBorders || false,
+            modifyScaleSize: settings.modifyScaleSize || false,
+        }
+    }
+
+    watch(showChunkBorders, createChunkBorders)
+
+    function createChunkBorders(enable: boolean){
+        //TODO добавить отрисовку границ чанков
+        // if(enable){
+        //     const chunkBorders = new THREE.Group();
+
+        //     const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+
+        //     const player = currentPlayer.value;
+        //     if(!player) return;
+
+        //     const x = player.x;
+        //     const z = player.z;
+
+        //     for(let i = -2; i <= 2; i++){
+        //         for(let j = -2; j <= 2; j++){
+        //             const x = i * CHUNK_SIZE;
+        //             const z = j * CHUNK_SIZE;
+
+        //             const geometry = new THREE.BufferGeometry().setFromPoints([
+        //                 new THREE.Vector3(x, 2, z),
+        //                 new THREE.Vector3(x + CHUNK_SIZE, 2, z),
+        //                 new THREE.Vector3(x + CHUNK_SIZE, 2, z + CHUNK_SIZE),
+        //                 new THREE.Vector3(x, 2, z + CHUNK_SIZE),
+        //                 new THREE.Vector3(x, 2, z)
+        //             ]);
+
+        //             const line = new THREE.Line(geometry, material);
+        //             chunkBorders.add(line);
+        //         }
+        //     }
+
+        //     chunkBorders.name = 'chunkBorders';
+        //     scene.value!.add(chunkBorders);
+        // }else{
+        //     const chunkBorders = scene.value!.getObjectByName('chunkBorders');
+        //     if (chunkBorders) {
+        //         scene.value!.remove(chunkBorders);
+        //     }
+        // }
+    }
+
+    function generateBrokenTexture(){
+        const canvas = document.createElement("canvas");
     
-    async function draw() {
+        const ctx = canvas.getContext("2d")!;
+    
+        const scale = 50;
+        
+        canvas.width = 8 * scale;
+        canvas.height = 8 * scale;
+    
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0 * scale, 0 * scale, 4 * scale, 4 * scale);
+        ctx.fillStyle = "#f800f8";
+        ctx.fillRect(4 * scale, 0 * scale, 4 * scale, 4 * scale);
+        ctx.fillStyle = "#f800f8";
+        ctx.fillRect(0 * scale, 4 * scale, 4 * scale, 4 * scale);
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(4 * scale, 4 * scale, 4 * scale, 4 * scale);
+
+        const texture = new THREE.CanvasTexture(canvas) as THREE.Texture;
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+
+        return texture;
+    }
+    
+    let firstRender = true;
+
+    async function render(){
+        requestAnimationFrame(render);
         const renderStartedAt = Date.now();
 
-        const canvas = getCanvas();
-        if(!canvas) return;
+        updateDrops();
+        updateTextures();
 
-        const ctx = canvas.getContext('2d');
-        if(!ctx) return;
+        playerMesh?.position.set(2, 0.75, 2);
 
-        ctx.clearRect(0, 0, 800, 800);
-        ctx.imageSmoothingEnabled = false;
-    
-        const player = currentPlayer.value;
-
-        if (!player) return;
-    
-        const x = player.x;
-        const z = player.z;
-
-
-    
-        const totalBlocks = (2 * scaleSize.value + 1);
-        const squareSize = mapSize.value / totalBlocks;
-    
-        for (let i = -scaleSize.value; i <= scaleSize.value; i++) {
-            for (let j = -scaleSize.value; j <= scaleSize.value; j++) {
-                const _x = x + i;
-                const _z = z + j;
-    
-                const chunkX = Math.floor(_x / 5);
-                const chunkZ = Math.floor(_z / 5);
-    
-                const key = `${chunkX}:${chunkZ}`;
-                const chunk = chunks.value[key];
-    
-                if (!chunk) continue;
-    
-                const blockX = ((_x % chunkSize) + chunkSize) % chunkSize;
-                const blockZ = ((_z % chunkSize) + chunkSize) % chunkSize;
-    
-                const number = chunk.chunk[blockX][blockZ];
-    
-                if (number === 0) continue;
-    
-                const img = await getBlock(number);
-    
-                ctx.drawImage(
-                    img,
-                    (i + scaleSize.value) * squareSize,
-                    (j + scaleSize.value) * squareSize,
-                    squareSize,
-                    squareSize
-                );
-            }
-        }
-
-        if(showChunkBorders.value){
-            ctx.strokeStyle = 'red';
-            ctx.lineWidth = 1;
-
-            for (let i = -scaleSize.value; i <= scaleSize.value; i++) {
-                for (let j = -scaleSize.value; j <= scaleSize.value; j++) {
-                    const _x = x + i;
-                    const _z = z + j;
-
-                    const chunkX = Math.floor(_x / chunkSize);
-                    const chunkZ = Math.floor(_z / chunkSize);
-
-                    const chunkStartX = (chunkX * chunkSize - x + scaleSize.value) * squareSize;
-                    const chunkStartZ = (chunkZ * chunkSize - z + scaleSize.value) * squareSize;
-
-                    ctx.strokeRect(chunkStartX, chunkStartZ, chunkSize * squareSize, chunkSize * squareSize);
-                }
-            }
-        }
-    
-        for (const uuid in players.value) {
-            const otherPlayer = players.value[uuid];
-            const dx = otherPlayer.x - x;
-            const dz = otherPlayer.z - z;
-    
-            const _x = dx + scaleSize.value;
-            const _z = dz + scaleSize.value;
-    
-            if (Math.abs(dx) > scaleSize.value || Math.abs(dz) > scaleSize.value) continue;
-            
-            ctx.drawImage(
-                await alex,
-                _x * squareSize + squareSize / 4,
-                _z * squareSize + squareSize / 4,
-                squareSize / 2,
-                squareSize / 2
-            );
-        }
-    
-        if (broken.value) {
-            const dx = broken.value.block.x - x;
-            const dz = broken.value.block.z - z;
-    
-            const _x = dx + scaleSize.value;
-            const _z = dz + scaleSize.value;
-            
-            const n = getBreakingStage(broken.value.stability, broken.value.progress);
-    
-            const img = textures.value[`destroy_stage_${n}`];
-    
-            ctx.drawImage(
-                img,
-                _x * squareSize,
-                _z * squareSize,
-                squareSize,
-                squareSize
-            );
-        }
-    
-        //if (self_show) {
-            ctx.drawImage(
-                await steve,
-                scaleSize.value * squareSize + squareSize / 4,
-                scaleSize.value * squareSize + squareSize / 4,
-                squareSize / 2,
-                squareSize / 2
-            );
-        //}
+        renderer.value!.render(toRaw(scene.value!), toRaw(camera.value!));
 
         if(firstRender){
             firstRender = false;
@@ -507,13 +814,25 @@ export const useGameStore = defineStore("game", () => {
 
     return {
         loadTextures,
-        loadImage,
         handleServerMessage,
-        draw,
-        onCanvasClick,
+        chunks,
+
         currentPlayer,
-        scaleSize,
-        mapSize,
+        texturesLoaded,
+        inventory,
+        showInventory,
+
+        // threejs
+        scene,
+        camera,
+        renderer,
+        render,
+        initPlatform,
+        onPointerDown,
+        onPointerUp,
+
+        // настройки
         showChunkBorders,
+        modifyScaleSize,
     };
 });

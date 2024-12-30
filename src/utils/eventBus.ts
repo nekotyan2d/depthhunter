@@ -8,6 +8,12 @@ type Events = {
     },
     gameStarted: {
         timeElapsed: number, // в миллисекундах
+    },
+    platformCreated: {
+        
+    },
+    accountCreated: {
+        
     }
 }
 

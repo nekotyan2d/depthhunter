@@ -26,10 +26,13 @@ import { useGameStore } from './stores/game';
 import { useLogger } from './composables/useLogger';
 import eventBus from './utils/eventBus';
 import ErrorPage from './pages/error.vue';
+import { storeToRefs } from 'pinia';
 
 const sockets = useSocketsStore();
 const app = useAppStore();
 const game = useGameStore();
+
+const { isLoading } = storeToRefs(app);
 
 const logger = useLogger();
 const router = useRouter();
@@ -44,6 +47,7 @@ async function initTelegramApp() {
         tg.ready();
 
         const initData = tg.initData || '';
+        app.initData = initData;
         const initDataUnsafe = tg.initDataUnsafe || {};
 
         const token = await verifyWithServer(initData);
@@ -64,7 +68,14 @@ async function verifyWithServer(initData: string) {
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-            throw new Error(data.response?.description || 'Authentication failed');
+            switch(data.response.exception){
+                case "ERR_ACCOUNT_NOT_FOUND":
+                    router.replace("/registration");
+                    isLoading.value = false;
+                    break;
+                default:
+                    throw new Error(data.response?.description || 'Authentication failed');
+            }
         }
 
         return data.response?.token;
@@ -85,8 +96,17 @@ eventBus.on("gameStarted", (data) => {
     passedStages.value++;
 });
 
+eventBus.on("platformCreated", (data) => {
+    passedStages.value++;
+});
+
+eventBus.on("accountCreated", () => {
+    initTelegramApp();
+    router.replace("/");
+});
+
 watch(() => passedStages.value, (value) => {
-    if (value === 2) {
+    if (value === 3) {
         app.isLoading = false;
     }
 });

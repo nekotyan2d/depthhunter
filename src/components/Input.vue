@@ -14,5 +14,6 @@ input {
     background-color: transparent;
     height: 40px;
     padding: 0 16px;
+    font-size: 1rem;
 }
 </style>

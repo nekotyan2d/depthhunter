@@ -10,14 +10,17 @@
   },
   "dependencies": {
     "mitt": "^3.0.1",
+    "ofetch": "^1.4.1",
     "pinia": "^2.2.6",
     "sass": "^1.81.0",
+    "three": "^0.171.0",
     "vue": "^3.5.12",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
     "@iconify/vue": "^4.1.2",
     "@types/node": "^22.10.0",
+    "@types/three": "^0.170.0",
     "@vitejs/plugin-vue": "^5.1.4",
     "typescript": "~5.6.2",
     "vite": "^5.4.10",
