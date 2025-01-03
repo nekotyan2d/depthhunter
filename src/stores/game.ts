@@ -546,19 +546,19 @@ export const useGameStore = defineStore("game", () => {
             const solidBlock = intersects.find((i) => i.object.visible);
             if (!solidBlock) return;
 
-            const intersectedObject = solidBlock.object;
-            const { x, z } = intersectedObject.userData;
-            if (x == undefined || z == undefined) return;
+            // const intersectedObject = solidBlock.object;
+            // const { x, z } = intersectedObject.userData;
+            // if (x == undefined || z == undefined) return;
 
-            if (!currentPlayer.value) return;
+            // if (!currentPlayer.value) return;
 
-            const blockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-            const blockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            // const blockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            // const blockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
 
-            const chunkX = Math.floor(x / CHUNK_SIZE);
-            const chunkZ = Math.floor(z / CHUNK_SIZE);
+            // const chunkX = Math.floor(x / CHUNK_SIZE);
+            // const chunkZ = Math.floor(z / CHUNK_SIZE);
 
-            chunks.value[`${chunkX}:${chunkZ}`].chunk[blockX][blockZ] = Math.floor(Math.random() * 10) + 1;
+            // TODO реализовать размещение блока
         }
     }
 
