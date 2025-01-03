@@ -30,6 +30,7 @@ nav {
     justify-content: center;
     height: 50px;
     user-select: none;
+    background-color: var(--color-bg);
 }
 
 .link {
