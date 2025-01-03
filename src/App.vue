@@ -118,6 +118,7 @@ main {
 	height: 100vh;
 	height: 100dvh;
 	padding-bottom: 50px;
+    overflow-y: auto;
 }
 
 .loading {
