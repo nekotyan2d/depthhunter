@@ -23,7 +23,6 @@ import { useSocketsStore } from './stores/sockets';
 import { useAppStore } from './stores/app';
 import { useGameStore } from './stores/game';
 
-import { useLogger } from './composables/useLogger';
 import eventBus from './utils/eventBus';
 import ErrorPage from './pages/error.vue';
 import { storeToRefs } from 'pinia';
@@ -34,7 +33,6 @@ const game = useGameStore();
 
 const { isLoading } = storeToRefs(app);
 
-const logger = useLogger();
 const router = useRouter();
 
 async function initTelegramApp() {
@@ -48,7 +46,6 @@ async function initTelegramApp() {
 
         const initData = tg.initData || '';
         app.initData = initData;
-        const initDataUnsafe = tg.initDataUnsafe || {};
 
         const token = await verifyWithServer(initData);
         sockets.connect(token)
@@ -88,15 +85,15 @@ game.loadTextures();
 
 const passedStages = ref(0);
 
-eventBus.on("texturesLoaded", (data) => {
+eventBus.on("texturesLoaded", () => {
     passedStages.value++;
 });
 
-eventBus.on("gameStarted", (data) => {
+eventBus.on("gameStarted", () => {
     passedStages.value++;
 });
 
-eventBus.on("platformCreated", (data) => {
+eventBus.on("platformCreated", () => {
     passedStages.value++;
 });
 

@@ -17,7 +17,6 @@ import { ref, watch } from "vue";
 
 import { useLogger } from '../composables/useLogger';
 import { useAppStore } from '../stores/app';
-import { debounce } from '../utils/helpers';
 import { storeToRefs } from 'pinia';
 import { ofetch } from 'ofetch';
 

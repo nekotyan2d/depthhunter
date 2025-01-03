@@ -1,13 +1,7 @@
 <template>
     <div class="background">
         <div class="inventory">
-            <div v-for="chunk in chunks">
-                <div v-for="row in chunk.chunk">
-                    <div v-for="column in row">
-                        {{ column.drops }}
-                    </div>
-                </div>
-            </div>
+            {{ inventory }}
             <!-- <div class="slot-grid">
                 <div class="slot" v-for="i in inventory.length">
                     <div class="item" :key="i" v-if="inventory[i]">
@@ -24,7 +18,7 @@ import { useGameStore } from '../stores/game';
 
 const game = useGameStore();
 
-const { inventory, chunks } = storeToRefs(game);
+const { inventory } = storeToRefs(game);
 </script>
 <style lang="scss" scoped>
 .background {

@@ -4,7 +4,7 @@
     </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import * as THREE from "three";
 
 import { useGameStore } from '../stores/game';
