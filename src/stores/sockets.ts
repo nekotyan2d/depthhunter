@@ -10,7 +10,7 @@ export const useSocketsStore = defineStore("sockets", () => {
 
     const connect = (token: string) => {
         const proto = location.protocol === "https:" ? "wss" : "ws";
-        connection.value = new WebSocket(`${proto}://${APP_BACKEND_URL}?token=${token}`);
+        connection.value = new WebSocket(`${proto}://${import.meta.env.VITE_APP_BACKEND_URL}?token=${token}`);
 
         connection.value.onopen = () => {
             logger.info("Подключено");

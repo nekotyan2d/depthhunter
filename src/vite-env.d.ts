@@ -1,5 +1,12 @@
 /// <reference types="vite/client" />
-declare const APP_BACKEND_URL: string;
+
+interface ImportMetaEnv {
+    readonly VITE_APP_BACKEND_URL: string;
+}
+
+interface ImportMeta {
+    readonly env: ImportMetaEnv;
+}
 
 interface Window {
     Telegram: {

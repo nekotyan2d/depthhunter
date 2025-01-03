@@ -42,7 +42,7 @@ watch(nick, checkNick);
 
 async function getProposals(){
     try {
-       const data = await ofetch(`https://${APP_BACKEND_URL}/api/nick/proposals`, {
+        const data = await ofetch(`https://${import.meta.env.VITE_APP_BACKEND_URL}/api/nick/proposals`, {
             headers: { 'Content-Type': 'application/json' },
             query: {
                 initData: initData.value
@@ -63,7 +63,7 @@ async function getProposals(){
 
 async function checkNick(){
     try {
-       const response = await fetch(`https://${APP_BACKEND_URL}/api/nick/check?nick=${nick.value}`, {
+        const response = await fetch(`https://${import.meta.env.VITE_APP_BACKEND_URL}/api/nick/check?nick=${nick.value}`, {
             headers: { 'Content-Type': 'application/json' },
         });
 
@@ -87,7 +87,7 @@ async function checkNick(){
 
 async function registerAccount(){
     try {
-       const data = await ofetch(`https://${APP_BACKEND_URL}/api/registration`, {
+        const data = await ofetch(`https://${import.meta.env.VITE_APP_BACKEND_URL}/api/registration`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: {
