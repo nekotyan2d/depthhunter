@@ -5,7 +5,7 @@
         <div class="error-text" v-if="!saveAllowed && nick.length">Ник занят, придумай другой!</div>
         <div>Или выбери из предложенных:</div>
         <div class="proposals">
-            <div v-for="proposal in proposals" @click="nick = proposal">{{ proposal }}</div>
+            <div class="item" v-for="proposal in proposals" @click="nick = proposal">{{ proposal }}</div>
         </div>
         <Button :disabled="!saveAllowed" @click="registerAccount">Сохранить</Button>
     </div>
@@ -122,6 +122,19 @@ async function registerAccount(){
 
     .error-text {
         color: var(--color-text-destructive);
+    }
+
+    .proposals {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+
+        .item {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--color-text);
+            cursor: pointer;
+        }
     }
 }
 </style>
