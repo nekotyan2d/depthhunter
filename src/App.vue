@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { RouterView, useRouter } from 'vue-router';
+import { RouterView, useRouter, useRoute } from 'vue-router';
 import BottomBar from './components/BottomBar.vue';
 
 import { useSocketsStore } from './stores/sockets';
@@ -34,6 +34,7 @@ const game = useGameStore();
 const { isLoading } = storeToRefs(app);
 
 const router = useRouter();
+const route = useRoute();
 
 async function initTelegramApp() {
     try {
@@ -103,7 +104,8 @@ eventBus.on("accountCreated", () => {
 });
 
 watch(() => passedStages.value, (value) => {
-    if (value === 3) {
+    // скрываем экран загрузки при 3-х пройденных стадиях на странице игры и при одной на других страницах
+    if ((value === 3 && route.path === "/") || (value === 1 && route.path !== "/")) {
         app.isLoading = false;
     }
 });
