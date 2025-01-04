@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { useLogger } from "../composables/useLogger";
 import { useSocketsStore } from "./sockets";
 import { useAppStore } from "./app";
+import { useChatStore } from "./chat";
 
 import eventBus from "../utils/eventBus";
 import Textures from "../game/textures";
@@ -15,6 +16,9 @@ const logger = useLogger();
 export const useGameStore = defineStore("game", () => {
     const { send } = useSocketsStore();
     const { fatalError } = storeToRefs(useAppStore());
+
+    const chat = useChatStore();
+    const { messages } = storeToRefs(chat);
 
     const textures = ref<{ [key: string]: THREE.Texture }>({});
 
@@ -400,7 +404,11 @@ export const useGameStore = defineStore("game", () => {
                 }
             });
         } else if (data.type === "msg") {
-            logger.log(data.result.text);
+            const chatMessage = {
+                text: data.result.text,
+                time: Date.now()
+            }
+            messages.value.push(chatMessage);
         } else if (data.type === "inventory") {
             inventory.value = data.result.inventory;
         } else if (data.type === "connect_player") {
