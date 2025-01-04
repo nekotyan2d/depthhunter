@@ -38,8 +38,8 @@ declare global {
             hand: Slot | null;
         };
     }
-    interface ServerMessageMove {
-        type: "move";
+    interface ServerMessagePosition {
+        type: "position";
         result: {
             player: Player;
             players: {[key: string]: Player};
@@ -63,8 +63,7 @@ declare global {
         type: "broken";
         result: {
             block: Block;
-            hardness: number;
-            progress: number;
+            dropped: number | null; // TODO здесь бы задать union идов предметов
         };
     }
     interface ServerMessageMsg {
@@ -109,7 +108,7 @@ declare global {
     }
     type ServerMessage =
         | ServerMessageStart
-        | ServerMessageMove
+        | ServerMessagePosition
         | ServerMessageBreak
         | ServerMessageBroken
         | ServerMessageDrop

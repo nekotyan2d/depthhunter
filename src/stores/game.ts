@@ -304,7 +304,7 @@ export const useGameStore = defineStore("game", () => {
             const drops = data.result.drops;
 
             addChunks(serverChunks, drops);
-        } else if (data.type === "move") {
+        } else if (data.type === "position") {
             const movedPlayer = data.result.player;
             if (currentPlayer.value && currentPlayer.value.nick === movedPlayer.nick) {
                 broken.value = null;
@@ -361,17 +361,17 @@ export const useGameStore = defineStore("game", () => {
             const block = data.result.block;
 
             if (broken.value && broken.value.block == block) {
-                const x = broken.value.block.x;
-                const z = broken.value.block.z;
-
-                if (broken.value.dropped) {
-                    if (drops[`${x}:${z}`] == undefined) {
-                        drops[`${x}:${z}`] = [];
-                    }
-                    drops[`${x}:${z}`].push({ id: broken.value.dropped, count: 1 });
-                }
-
                 broken.value = null;
+            }
+
+            const x = block.x;
+            const z = block.z;
+
+            if (data.result.dropped) {
+                if (drops[`${x}:${z}`] == undefined) {
+                    drops[`${x}:${z}`] = [];
+                }
+                drops[`${x}:${z}`].push({ id: data.result.dropped, count: 1 });
             }
 
             await editBlock(block.x, block.z, 0);
@@ -552,9 +552,19 @@ export const useGameStore = defineStore("game", () => {
                 return;
             }
 
-            // находим ближайший видимый блок
-            const solidBlock = intersects.find((i) => i.object.visible);
-            if (!solidBlock) return;
+            const mesh = intersects[0].object;
+            const blockX = mesh.userData.x;
+            const blockZ = mesh.userData.z;
+            
+            const isNeighbor =
+                (Math.abs(playerX - blockX) === 1 && playerZ === blockZ) || (Math.abs(playerZ - blockZ) === 1 && playerX === blockX);
+            if(isNeighbor) return;
+
+            const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
+
+            if (side != "unknown" && getBlockBySide(side) == 0) {
+                send({ type: "move", data: { side } });
+            }
 
             // const intersectedObject = solidBlock.object;
             // const { x, z } = intersectedObject.userData;
