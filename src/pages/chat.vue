@@ -55,11 +55,11 @@ function sendMessage() {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    height: calc(var(--viewport-height) - 50px);
+    height: calc(var(--viewport-stable-height, 100vh) - 66px);
     padding: 8px;
 
     .messages {
-        height: calc(var(--viewport-height) - 100px);
+        height: calc(var(--viewport-stable-height, 100vh) - 116px);
         overflow-y: auto;
         padding: 10px;
         display: flex;
