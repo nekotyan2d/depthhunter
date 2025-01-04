@@ -32,6 +32,7 @@ const app = useAppStore();
 const game = useGameStore();
 
 const { isLoading } = storeToRefs(app);
+const { inGame } = storeToRefs(game);
 
 const router = useRouter();
 const route = useRoute();
@@ -109,6 +110,18 @@ watch(() => passedStages.value, (value) => {
         app.isLoading = false;
     }
 });
+
+if (route.path === "/") {
+    inGame.value = true;
+}
+
+watch(() => route.path, () => {
+    if (route.path === "/") {
+        inGame.value = true;
+    } else {
+        inGame.value = false;
+    }
+})
 
 window.onload = () => initTelegramApp();
 </script>

@@ -46,6 +46,8 @@ export const useGameStore = defineStore("game", () => {
 
     const texturesLoaded = ref(false);
 
+    const inGame = ref(false);
+
     const settings = getSettings();
     const showChunkBorders = ref(settings.showChunkBorders);
     const modifyScaleSize = ref(settings.modifyScaleSize);
@@ -696,6 +698,8 @@ export const useGameStore = defineStore("game", () => {
     }
 
     document.addEventListener("keydown", (event) => {
+        if(!inGame.value) return;
+
         if (!currentPlayer.value) return;
 
         const currentTime = Date.now();
@@ -806,7 +810,8 @@ export const useGameStore = defineStore("game", () => {
     let firstRender = true;
 
     async function render() {
-        requestAnimationFrame(render);
+        if (!inGame.value) return;
+        
         const renderStartedAt = Date.now();
 
         updateDrops();
@@ -823,12 +828,15 @@ export const useGameStore = defineStore("game", () => {
             logger.info(`firstRender: ${renderTime} мс`);
             eventBus.emit("gameStarted", { timeElapsed: renderTime });
         }
+
+        requestAnimationFrame(render);
     }
 
     return {
         loadTextures,
         handleServerMessage,
         chunks,
+        inGame,
 
         currentPlayer,
         texturesLoaded,
