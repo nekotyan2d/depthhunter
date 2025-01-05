@@ -38,6 +38,8 @@ export const useGameStore = defineStore("game", () => {
 
     const dropsGroup = new THREE.Group();
     dropsGroup.name = "drops";
+    const playersGroup = new THREE.Group();
+    playersGroup.name = "players";
 
     const currentPlayer = ref<Player | null>(null);
     const broken = ref<ServerMessageBreak["result"] | null>(null);
@@ -124,6 +126,10 @@ export const useGameStore = defineStore("game", () => {
         scene.value!.add(dropsGroup);
     }
 
+    function addPlayersGroup() {
+        scene.value!.add(playersGroup);
+    }
+
     const cubes = new Array<{
         x: number;
         z: number;
@@ -169,8 +175,11 @@ export const useGameStore = defineStore("game", () => {
             }
         }
         createPlayer();
-        addDropsGroup();
         // createChunkBorders(showChunkBorders.value);
+
+        // добавление групп объектов
+        addDropsGroup();
+        addPlayersGroup();
     }
 
     let platformCreated = false;
@@ -232,6 +241,8 @@ export const useGameStore = defineStore("game", () => {
         });
     }
 
+    const dropMeshes: { [key: string]: THREE.Mesh } = {};
+
     function updateDrops() {
         const player = currentPlayer.value;
         if (!player) return;
@@ -248,10 +259,11 @@ export const useGameStore = defineStore("game", () => {
             const chunkX = Math.floor(x / CHUNK_SIZE);
             const chunkZ = Math.floor(z / CHUNK_SIZE);
 
-            let chunkDropGroup = dropsGroup.getObjectByName(`chunk_${chunkX}_${chunkZ}`);
+            const chunkKey = `chunk_${chunkX}_${chunkZ}`;
+            let chunkDropGroup = dropsGroup.getObjectByName(chunkKey) as THREE.Group;
             if (!chunkDropGroup) {
                 chunkDropGroup = new THREE.Group();
-                chunkDropGroup.name = `chunk_${chunkX}_${chunkZ}`;
+                chunkDropGroup.name = chunkKey;
                 dropsGroup.add(chunkDropGroup);
             }
 
@@ -259,7 +271,8 @@ export const useGameStore = defineStore("game", () => {
             const dropZ = playerSceneZ - (playerZ - z);
 
             chunkDrops.forEach((drop) => {
-                let dropMesh = chunkDropGroup.getObjectByName(`drop_${drop.id}_${x}_${z}`);
+                const dropKey = `drop_${drop.id}_${x}_${z}`;
+                let dropMesh = dropMeshes[dropKey];
                 if (dropMesh) {
                     dropMesh.position.set(dropX, 0.8, dropZ);
                     return;
@@ -272,18 +285,70 @@ export const useGameStore = defineStore("game", () => {
 
                 dropMesh = new THREE.Mesh(geometry, material);
                 dropMesh.position.set(dropX, 0.8, dropZ);
-                dropMesh.name = `drop_${drop.id}_${x}_${z}`;
+                dropMesh.name = dropKey;
 
                 chunkDropGroup.add(dropMesh);
+                dropMeshes[dropKey] = dropMesh;
             });
         });
 
-        dropsGroup.children.forEach((chunkDropGroup) => {
-            if (!(chunkDropGroup instanceof THREE.Group)) return;
-            chunkDropGroup.children.forEach((drop) => {
-                if (!(drop instanceof THREE.Mesh)) return;
-                drop.rotateY(0.01);
+        Object.values(dropMeshes).forEach((drop) => {
+            drop.rotateY(0.01);
+        });
+    }
+
+    const playerMeshes: { [key: string]: THREE.Mesh } = {};
+
+    function updatePlayers() {
+        const player = currentPlayer.value;
+        if (!player) return;
+
+        const playerX = player.x;
+        const playerZ = player.z;
+
+        const playerSceneX = playerMesh!.position.x;
+        const playerSceneZ = playerMesh!.position.z;
+
+        Object.entries(players.value).forEach(([nick, player]) => {
+            if (
+                currentPlayer.value!.x == player.x &&
+                currentPlayer.value!.z == player.z
+            ) {
+                playersGroup.remove(playerMeshes[nick]);
+                delete playerMeshes[nick];
+                return;
+            }
+            const x = player.x;
+            const z = player.z;
+
+            const otherPlayerX = playerSceneX - (playerX - x);
+            const otherPlayerZ = playerSceneZ - (playerZ - z);
+
+            let playerMesh = playerMeshes[nick];
+            if (playerMesh) {
+                playerMesh.position.set(otherPlayerX, 0.75, otherPlayerZ);
+                return;
+            }
+
+            const playerTexture = textures.value["alex"];
+
+            playerTexture.magFilter = THREE.NearestFilter;
+            playerTexture.minFilter = THREE.NearestFilter;
+
+            const playerMaterial = new THREE.MeshStandardMaterial({
+                map: playerTexture,
+                transparent: true,
             });
+            const playerGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+
+            playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
+            playerMesh.castShadow = true;
+            playerMesh.receiveShadow = true;
+            playerMesh.name = `player_${nick}`;
+            playerMesh.position.set(otherPlayerX, 0.75, otherPlayerZ);
+
+            playersGroup.add(playerMesh);
+            playerMeshes[nick] = playerMesh;
         });
     }
 
@@ -318,12 +383,24 @@ export const useGameStore = defineStore("game", () => {
                     }
                 }
 
-                const escape_players = data.result.escape_players;
-                for (const key in escape_players) {
-                    if (escape_players.hasOwnProperty(key)) {
-                        deletePlayer(escape_players[key].nick);
+                const escapePlayers = data.result.escape_players;
+                for (const key in escapePlayers) {
+                    if (escapePlayers.hasOwnProperty(key)) {
+                        deletePlayer(escapePlayers[key].nick);
                     }
                 }
+
+                if (data.result.escape) {
+                    deletePlayer(movedPlayer.nick);
+                }
+
+                Object.entries(playerMeshes).forEach(([, player]) => {
+                    const nick = player.name.split("_")[1];
+                    if ((data.result.escape && nick === movedPlayer.nick) || players.find(p => p.nick === nick)) {
+                        playersGroup.remove(player);
+                        delete playerMeshes[nick];
+                    }
+                })
 
                 const serverChunks = data.result.chunks;
                 const drops = data.result.drops;
@@ -403,6 +480,7 @@ export const useGameStore = defineStore("game", () => {
                     (drops[`${x}:${z}`] && drops[`${x}:${z}`].find((d) => d.id == id) == undefined)
                 ) {
                     chunkDropGroup.remove(drop);
+                    delete dropMeshes[drop.name];
                 }
             });
         } else if (data.type === "msg") {
@@ -491,6 +569,11 @@ export const useGameStore = defineStore("game", () => {
 
     async function deletePlayer(nick: string) {
         delete players.value[nick];
+        const playerMesh = playerMeshes[nick];
+        if (playerMesh) {
+            playersGroup.remove(playerMesh);
+            delete playerMeshes[nick];
+        }
     }
 
     async function editBlock(x: number, z: number, block: number) {
@@ -826,6 +909,7 @@ export const useGameStore = defineStore("game", () => {
 
         updateDrops();
         updateTextures();
+        updatePlayers();
 
         playerMesh?.position.set(2, 0.75, 2);
 

@@ -42,8 +42,8 @@ declare global {
         type: "position";
         result: {
             player: Player;
-            players: {[key: string]: Player};
-            escape_players: {[key: string]: Player};
+            players: Player[];
+            escape_players: Player[];
             chunks: {[key: string]: Chunk};
             escape: boolean;
             drops: {x: number, z: number, items: Drop[]}[];
