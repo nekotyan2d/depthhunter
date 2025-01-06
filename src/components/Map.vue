@@ -13,7 +13,7 @@ import { storeToRefs } from 'pinia';
 import eventBus from '../utils/eventBus';
 
 const game = useGameStore();
-const {scene, camera, renderer, texturesLoaded} = storeToRefs(game);
+const {scene, camera, renderer, assetsLoaded} = storeToRefs(game);
 
 const BOTTOM_BAR_HEIGHT = 60;
 
@@ -45,12 +45,12 @@ onMounted(() => {
     if(mapElement){
         mapElement.appendChild(renderer.value.domElement);
 
-        eventBus.on("texturesLoaded", () => {
+        eventBus.on("assetsLoaded", () => {
             gameInit();
-            eventBus.off("texturesLoaded");
+            eventBus.off("assetsLoaded");
         })
 
-        if(texturesLoaded.value){
+        if(assetsLoaded.value){
             gameInit();
         }
     }

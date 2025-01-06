@@ -83,11 +83,11 @@ async function verifyWithServer(initData: string) {
     }
 }
 
-game.loadTextures();
+game.loadAssets();
 
 const passedStages = ref(0);
 
-eventBus.on("texturesLoaded", () => {
+eventBus.on("assetsLoaded", () => {
     passedStages.value++;
 });
 
