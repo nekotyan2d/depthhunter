@@ -46,7 +46,7 @@ export const useGameStore = defineStore("game", () => {
 
     const CHUNK_SIZE = 5;
 
-    const texturesLoaded = ref(false);
+    const assetsLoaded = ref(false);
 
     const inGame = ref(false);
 
@@ -58,7 +58,7 @@ export const useGameStore = defineStore("game", () => {
         await handleServerMessage(data);
     });
 
-    async function loadTextures() {
+    async function loadAssets() {
         logger.info("Начало загрузки текстур");
 
         const promises = Object.entries({ ...Textures.blocks, ...Textures.players }).map(async ([key, value]) => {
@@ -94,12 +94,9 @@ export const useGameStore = defineStore("game", () => {
             }%) текстур`
         );
 
-        eventBus.emit("texturesLoaded", {
-            total: promises.length,
-            loaded: successfulPromises.length,
-        });
+        eventBus.emit("assetsLoaded");
 
-        texturesLoaded.value = true;
+        assetsLoaded.value = true;
 
         return results;
     }
@@ -299,6 +296,51 @@ export const useGameStore = defineStore("game", () => {
 
     const playerMeshes: { [key: string]: THREE.Mesh } = {};
 
+    function createTextLabel(text: string) {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d")!;
+        const fontSize = 16;
+    
+        canvas.width = 256;
+        canvas.height = 64;
+    
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = `${fontSize}px Monocraft`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+    
+        const material = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(2.4, 0.6, 1.2);
+    
+        return sprite;
+    }
+
+    function updateTextLabelPosition(player: THREE.Mesh, textLabel: THREE.Sprite) {
+        const playerPosition = player.position;
+        const currentPlayerPosition = playerMesh!.position;
+
+        // рассчитываем расстояние между текущим игроком и игроком
+        const distance = currentPlayerPosition.distanceTo(playerPosition);
+
+        // смещаем текст по Y в зависимости от расстояния
+        textLabel.position.y = 1 - distance * 0.05;
+
+        // рассчитываем угол между текущим игроком и игроком
+        const angle = Math.atan2(
+            currentPlayerPosition.z - playerPosition.z,
+            currentPlayerPosition.x - playerPosition.x
+        );
+        // смещаем лейбл чтобы он всегда был над игроком
+        textLabel.position.z = Math.sin(angle) * 0.4;
+    }
+
     function updatePlayers() {
         const player = currentPlayer.value;
         if (!player) return;
@@ -327,6 +369,10 @@ export const useGameStore = defineStore("game", () => {
             let playerMesh = playerMeshes[nick];
             if (playerMesh) {
                 playerMesh.position.set(otherPlayerX, 0.75, otherPlayerZ);
+                const textLabel = playerMesh.children.find((child) => child instanceof THREE.Sprite) as THREE.Sprite;
+                if (textLabel) {
+                    updateTextLabelPosition(playerMesh, textLabel);
+                }
                 return;
             }
 
@@ -349,6 +395,11 @@ export const useGameStore = defineStore("game", () => {
 
             playersGroup.add(playerMesh);
             playerMeshes[nick] = playerMesh;
+
+            const textLabel = createTextLabel(nick);
+            textLabel.position.set(0, 1.2, 0);
+            playerMesh.add(textLabel);
+            updateTextLabelPosition(playerMesh, textLabel);
         });
     }
 
@@ -927,13 +978,13 @@ export const useGameStore = defineStore("game", () => {
     }
 
     return {
-        loadTextures,
+        loadAssets,
         handleServerMessage,
         chunks,
         inGame,
 
         currentPlayer,
-        texturesLoaded,
+        assetsLoaded,
         inventory,
         showInventory,
 
