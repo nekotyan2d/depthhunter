@@ -1,15 +1,17 @@
 <template>
     <template v-if="app.$state.fatalError.occurred">
-        <ErrorPage :error="{message: app.$state.fatalError.message}"/>
+        <ErrorPage :error="{message: app.$state.fatalError.message}" />
     </template>
     <template v-else>
         <div v-show="app.isLoading" class="loading">
-            <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Telegram-Animated-Emojis/main/Symbols/Collision.webp" alt="Загрузка" width="100" height="100" />
-            <div class="text">Загрузка...</div>
+            <div class="loader">
+                <Image src="/img/loading.webp" alt="Загрузка" width="100" height="100" />
+            </div>
+            <div v-if="showLoadingText" class="text">Загрузка...</div>
         </div>
         <main v-show="!app.isLoading">
-            <RouterView/>
-            <BottomBar/>
+            <RouterView />
+            <BottomBar />
         </main>
     </template>
 </template>
@@ -26,6 +28,7 @@ import { useGameStore } from './stores/game';
 import eventBus from './utils/eventBus';
 import ErrorPage from './pages/error.vue';
 import { storeToRefs } from 'pinia';
+import Image from './components/Image.vue';
 
 const sockets = useSocketsStore();
 const app = useAppStore();
@@ -36,6 +39,8 @@ const { inGame } = storeToRefs(game);
 
 const router = useRouter();
 const route = useRoute();
+
+const showLoadingText = ref(false);
 
 async function initTelegramApp() {
     try {
@@ -83,8 +88,6 @@ async function verifyWithServer(initData: string) {
     }
 }
 
-game.loadAssets();
-
 const passedStages = ref(0);
 
 eventBus.on("assetsLoaded", () => {
@@ -103,6 +106,10 @@ eventBus.on("accountCreated", () => {
     initTelegramApp();
     router.replace("/");
 });
+
+eventBus.on("fontLoaded", () => {
+    showLoadingText.value = true;
+})
 
 watch(() => passedStages.value, (value) => {
     // скрываем экран загрузки при 3-х пройденных стадиях на странице игры и при одной на других страницах
@@ -126,7 +133,7 @@ watch(() => route.path, () => {
 window.onload = () => initTelegramApp();
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 main {
 	height: 100vh;
 	height: 100dvh;
@@ -143,5 +150,13 @@ main {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+
+    .loader {
+        height: 100px;
+    }
+
+    .text {
+        height: 30px;
+    }
 }
 </style>

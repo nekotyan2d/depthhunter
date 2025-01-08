@@ -9,9 +9,18 @@ import { useAppStore } from "./app";
 import { useChatStore } from "./chat";
 
 import eventBus from "../utils/eventBus";
-import Textures from "../game/textures";
+import Assets from "../game/assets";
 
 const logger = useLogger();
+
+interface BlockAssetSides {
+    main: THREE.Texture;
+    top?: THREE.Texture;
+    left?: THREE.Texture;
+    right?: THREE.Texture;
+    front?: THREE.Texture;
+    back?: THREE.Texture;
+}
 
 export const useGameStore = defineStore("game", () => {
     const { send } = useSocketsStore();
@@ -20,7 +29,13 @@ export const useGameStore = defineStore("game", () => {
     const chat = useChatStore();
     const { messages } = storeToRefs(chat);
 
-    const textures = ref<{ [key: string]: THREE.Texture }>({});
+    const textures = ref<{
+        blocks: Record<string, BlockAssetSides>,
+        players: Record<string, THREE.Texture>
+    }>({
+        blocks: {},
+        players: {},
+    });
 
     const chunks = ref<{ [key: string]: Chunk }>({});
     const players = ref<{ [key: string]: Player }>({});
@@ -46,7 +61,7 @@ export const useGameStore = defineStore("game", () => {
 
     const CHUNK_SIZE = 5;
 
-    const assetsLoaded = ref(false);
+    const texturesLoaded = ref(false);
 
     const inGame = ref(false);
 
@@ -58,55 +73,42 @@ export const useGameStore = defineStore("game", () => {
         await handleServerMessage(data);
     });
 
-    async function loadAssets() {
-        logger.info("Начало загрузки текстур");
+    eventBus.on("assetsLoaded", () => {
+        const blockAssets = Assets.blockAssets;
+        Object.entries(blockAssets).forEach(([id, sidePaths]) => {
+            const sides: Partial<BlockAssetSides> = {};
+            Object.entries(sidePaths).forEach(([side, asset]) => {
+                const base64 = URL.createObjectURL(asset);
 
-        const promises = Object.entries({ ...Textures.blocks, ...Textures.players }).map(async ([key, value]) => {
-            try {
-                textures.value[key] = await textureLoader.loadAsync(value.url);
-                // фильтры для улучшения текстур
-                textures.value[key].magFilter = THREE.NearestFilter;
-                textures.value[key].minFilter = THREE.NearestFilter;
+                const texture = textureLoader.load(base64);
+                texture.magFilter = THREE.NearestFilter;
+                texture.minFilter = THREE.NearestFilter;
 
-                textures.value[key].name = key;
-            } catch (error) {
-                logger.error(`Не удалось загрузить текстуру: ${value.url}`);
-                throw error;
-            }
+                texture.name = `${id}_${side}`;
+
+                sides[side as keyof BlockAssetSides] = texture;
+            });
+            textures.value.blocks[id] = sides as BlockAssetSides;
         });
 
-        const results = await Promise.allSettled(promises);
-        const successfulPromises = results.filter((p) => p.status === "fulfilled");
+        const playerAssets = Assets.playerAssets;
+        Object.entries(playerAssets).forEach(([id, asset]) => {
+            const base64 = URL.createObjectURL(asset);
+            const texture = textureLoader.load(base64);
+            texture.magFilter = THREE.NearestFilter;
+            texture.minFilter = THREE.NearestFilter;
 
-        logger.info(
-            `Загружено ${successfulPromises.length} (${(successfulPromises.length / promises.length) * 100}%) текстур`
-        );
+            texture.name = id;
+            textures.value.players[id] = texture;
+        })
 
-        // замена отсутствующих текстур на пурпурно-черную текстуру
-        Object.entries({ ...Textures.blocks, ...Textures.players }).map(async ([key]) => {
-            if (textures.value[key]) return;
-            textures.value[key] = generateBrokenTexture();
-        });
-
-        logger.info(
-            `Исправлено ${promises.length - successfulPromises.length} (${
-                ((promises.length - successfulPromises.length) / promises.length) * 100
-            }%) текстур`
-        );
-
-        eventBus.emit("assetsLoaded");
-
-        assetsLoaded.value = true;
-
-        return results;
-    }
+        texturesLoaded.value = true;
+        eventBus.emit("texturesLoaded");
+    });
 
     let playerMesh: THREE.Mesh | null = null;
     async function createPlayer() {
-        const playerTexture = textures.value["steve"];
-
-        playerTexture.magFilter = THREE.NearestFilter;
-        playerTexture.minFilter = THREE.NearestFilter;
+        const playerTexture = textures.value.players["steve"];
 
         const playerMaterial = new THREE.MeshStandardMaterial({
             map: playerTexture,
@@ -145,7 +147,7 @@ export const useGameStore = defineStore("game", () => {
 
                     const geometry = new THREE.BoxGeometry(1, 1, 1);
                     const material = new THREE.MeshStandardMaterial({
-                        map: textures.value["1"],
+                        map: textures.value.blocks["1"].main,
                         transparent: true,
                     });
 
@@ -201,7 +203,7 @@ export const useGameStore = defineStore("game", () => {
             const key = `${chunkX}:${chunkZ}`;
             const chunk = chunks.value[key];
 
-            let texture = null;
+            let texture: THREE.Texture | undefined;
             if (chunk) {
                 const localBlockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
                 const localBlockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
@@ -210,7 +212,7 @@ export const useGameStore = defineStore("game", () => {
                 block.userData = { x, z };
 
                 if (coordinates !== 0) {
-                    texture = textures.value[coordinates];
+                    texture = textures.value.blocks[coordinates].main;
                     if (!platformCreated) {
                         platformCreated = true;
                         eventBus.emit("platformCreated", {});
@@ -221,7 +223,7 @@ export const useGameStore = defineStore("game", () => {
                 if (broken.value && broken.value.block.x === x && broken.value.block.z === z) {
                     const n = getBreakingStage(broken.value.hardness, broken.value.progress);
 
-                    block.material.alphaMap = textures.value[`destroy_stage_${n}`];
+                    block.material.alphaMap = textures.value.blocks[`destroy_stage_${n}`].main;
                 } else {
                     block.material.alphaMap = null;
                 }
@@ -277,7 +279,7 @@ export const useGameStore = defineStore("game", () => {
 
                 const geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
                 const material = new THREE.MeshStandardMaterial({
-                    map: textures.value[drop.id.toString()],
+                    map: textures.value.blocks[drop.id.toString()].main,
                 });
 
                 dropMesh = new THREE.Mesh(geometry, material);
@@ -376,7 +378,7 @@ export const useGameStore = defineStore("game", () => {
                 return;
             }
 
-            const playerTexture = textures.value["alex"];
+            const playerTexture = textures.value.players["alex"];
 
             playerTexture.magFilter = THREE.NearestFilter;
             playerTexture.minFilter = THREE.NearestFilter;
@@ -925,32 +927,6 @@ export const useGameStore = defineStore("game", () => {
     //     }
     // }
 
-    function generateBrokenTexture() {
-        const canvas = document.createElement("canvas");
-
-        const ctx = canvas.getContext("2d")!;
-
-        const scale = 50;
-
-        canvas.width = 8 * scale;
-        canvas.height = 8 * scale;
-
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0 * scale, 0 * scale, 4 * scale, 4 * scale);
-        ctx.fillStyle = "#f800f8";
-        ctx.fillRect(4 * scale, 0 * scale, 4 * scale, 4 * scale);
-        ctx.fillStyle = "#f800f8";
-        ctx.fillRect(0 * scale, 4 * scale, 4 * scale, 4 * scale);
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(4 * scale, 4 * scale, 4 * scale, 4 * scale);
-
-        const texture = new THREE.CanvasTexture(canvas) as THREE.Texture;
-        texture.magFilter = THREE.NearestFilter;
-        texture.minFilter = THREE.NearestFilter;
-
-        return texture;
-    }
-
     let firstRender = true;
 
     async function render() {
@@ -978,13 +954,12 @@ export const useGameStore = defineStore("game", () => {
     }
 
     return {
-        loadAssets,
         handleServerMessage,
         chunks,
         inGame,
 
         currentPlayer,
-        assetsLoaded,
+        texturesLoaded,
         inventory,
         showInventory,
 

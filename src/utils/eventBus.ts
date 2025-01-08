@@ -3,6 +3,8 @@ import mitt from "mitt";
 type Events = {
     serverMessage: ServerMessage,
     assetsLoaded: any,
+    fontLoaded: any,
+    texturesLoaded: any,
     gameStarted: {
         timeElapsed: number, // в миллисекундах
     },

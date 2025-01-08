@@ -1,10 +1,12 @@
 <template>
     <div class="error">
-        <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Telegram-Animated-Emojis/main/Symbols/Cross%20Mark.webp" alt="Error occurred" width="150" height="150" />
+        <Image src="/img/cross.webp" alt="Error occurred" width="150" height="150" />
         <p>{{ error.message }}</p>
     </div>
 </template>
 <script lang="ts" setup>
+import Image from '../components/Image.vue';
+
 defineProps<{
     error: {
         message: string,

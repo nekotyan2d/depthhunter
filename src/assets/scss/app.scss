@@ -1,12 +1,5 @@
 @use "variables" as *;
 
-@font-face {
-    font-family: 'Monocraft';
-    src: url('/fonts/Monocraft.otf') format('opentype');
-    font-weight: normal;
-    font-style: normal;
-}
-
 :root {
     font-family: Monocraft, Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
     line-height: 1.5;

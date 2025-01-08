@@ -5,6 +5,8 @@ import "./assets/scss/app.scss";
 
 import App from "./App.vue";
 
+import Assets from "./game/assets";
+
 import { createPinia } from "pinia";
 const pinia = createPinia();
 
@@ -29,3 +31,5 @@ createApp(App)
     .use(router)
     .use(pinia)
     .mount("#app");
+
+Assets.loadAssets()
