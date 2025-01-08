@@ -24,6 +24,7 @@ const waitDBInitialization = new Promise<void>((resolve, reject) => {
 
 let blockAssets: Record<string, BlockAssetSides> = {};
 let playerAssets: Record<string, Blob> = {};
+let itemAssets: Record<string, Blob> = {};
 
 async function loadAssets() {
     logger.info("Начало загрузки ассетов");
@@ -64,6 +65,18 @@ async function loadAssets() {
             })
             .catch(async () => {
                 playerAssets[id] = await generateBrokenTexture();
+            });
+        promises.push(promise);
+    });
+
+    // загрузка текстур предметов
+    Object.entries(items).forEach(async ([id, { name }]) => {
+        const promise = loadAsset(`textures/items/${name}.png`)
+            .then((asset) => {
+                itemAssets[id] = asset;
+            })
+            .catch(async () => {
+                itemAssets[id] = await generateBrokenTexture();
             });
         promises.push(promise);
     });
@@ -172,9 +185,44 @@ export const players = {
     steve: { url: "steve" },
 };
 
+// текстуры предметов
+export const items = {
+    1: { name: "cobblestone" },
+    2: { name: "coal" },
+    3: { name: "iron_ingot" },
+    4: { name: "redstone" },
+    5: { name: "gold_ingot"},
+    6: { name: "lapis_lazuli" },
+    7: { name: "diamond" },
+    8: { name: "emerald" },
+    9: { name: "oak_log" },
+    10: { name: "stone" },
+    11: { name: "oak_plank" },
+    12: { name: "dirt" },
+    13: { name: "gravel" },
+    14: { name: "crafting_table" },
+    15: { name: "furnace" },
+    16: { name: "stick" },
+    17: { name: "raw_iron" },
+    18: { name: "raw_gold" },
+    19: { name: "wooden_pickaxe" },
+    20: { name: "wooden_axe" },
+    21: { name: "wooden_shovel" },
+    22: { name: "stone_pickaxe" },
+    23: { name: "stone_axe" },
+    24: { name: "stone_shovel" },
+    25: { name: "iron_pickaxe" },
+    26: { name: "iron_axe" },
+    27: { name: "iron_shovel" },
+    28: { name: "diamond_pickaxe" },
+    29: { name: "diamond_axe" },
+    30: { name: "diamond_shovel" },
+};
+
 export default {
     blockAssets,
     playerAssets,
+    itemAssets,
     loadAssets,
     loadAsset
 };

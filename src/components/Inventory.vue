@@ -1,24 +1,30 @@
 <template>
     <div class="background">
         <div class="inventory">
-            {{ inventory }}
-            <!-- <div class="slot-grid">
-                <div class="slot" v-for="i in inventory.length">
-                    <div class="item" :key="i" v-if="inventory[i]">
-                        {{ inventory[i] }}
+            <header>
+                <div class="title">Инвентарь</div>
+                <button @click="showInventory = !showInventory">x</button>
+            </header>
+            <div class="slot-grid">
+                <div class="slot" v-for="(slot, i) in inventory" :key="`slot_${i}`">
+                    <div class="item" v-if="slot">
+                        <Image :src="`/textures/items/${items[slot.id as keyof typeof items].name}.png`" />
+                        <div class="count">{{ slot.count }}</div>
                     </div>
                 </div>
-            </div> -->
+            </div>
         </div>
     </div>
 </template>
 <script lang="ts" setup>
 import { storeToRefs } from 'pinia';
 import { useGameStore } from '../stores/game';
+import Image from './Image.vue';
+import { items } from '../game/assets';
 
 const game = useGameStore();
 
-const { inventory } = storeToRefs(game);
+const { inventory, showInventory } = storeToRefs(game);
 </script>
 <style lang="scss" scoped>
 .background {
@@ -33,17 +39,55 @@ const { inventory } = storeToRefs(game);
 
     .inventory {
         background-color: var(--color-bg);
-        width: 400px;
-        height: 300px;
+        border-radius: 2px;
         overflow: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px;
+        gap: 8px;
+
+        header {
+            display: flex;
+            align-items: center;
+            width: 100%;
+
+            .title {
+                font-size: 1.1rem;
+                flex: 1;
+            }
+        }
 
         .slot-grid{
             display: grid;
-            grid-template-columns: repeat(9, 1fr);
-            grid-template-rows: repeat(3, 1fr);
+            grid-template-columns: repeat(9, 40px);
+            grid-template-rows: repeat(3, 40px);
 
             .slot {
                 border: 1px solid var(--color-bg-secondary);
+
+                .item {
+                    position: relative;
+                    height: 100%;
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+
+                    img {
+                        height: 80%;
+                        width: 80%;
+                        display: block;
+                        image-rendering: pixelated;
+                    }
+
+                    .count {
+                        position: absolute;
+                        bottom: 0;
+                        right: 0;
+                        font-size: 0.8rem;
+                    }
+                }
             }
         }
     }

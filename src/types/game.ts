@@ -40,6 +40,7 @@ declare global {
     }
     interface ServerMessagePosition {
         type: "position";
+        req_id: string;
         result: {
             player: Player;
             players: Player[];
@@ -74,7 +75,7 @@ declare global {
     }
     interface ServerMessageInventory {
         type: "inventory";
-        query_id: number;
+        req_id: string;
         result: {
             inventory: (Slot | null)[];
             hand: Slot | null;

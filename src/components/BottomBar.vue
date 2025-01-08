@@ -1,15 +1,15 @@
 <template>
     <nav>
         <RouterLink class="link" to="/chat" active-class="active">
-            <Icon icon="material-symbols:chat-outline-rounded" height="1.1rem" width="1.1rem"/>
+            <Icon icon="pixelarticons:message-text" height="1.1rem" width="1.1rem" />
             <span>Чат</span>
         </RouterLink>
         <RouterLink class="link" to="/" active-class="active">
-            <Icon icon="material-symbols:gamepad-outline-rounded" height="1.1rem" width="1.1rem"/>
+            <Icon icon="pixelarticons:play" height="1.1rem" width="1.1rem" />
             <span>Игра</span>
         </RouterLink>
         <RouterLink class="link" to="/settings" active-class="active">
-            <Icon icon="material-symbols:settings-outline-rounded" height="1.1rem" width="1.1rem"/>
+            <Icon icon="pixelarticons:menu" height="1.1rem" width="1.1rem" />
             <span>Настройки</span>
         </RouterLink>
     </nav>

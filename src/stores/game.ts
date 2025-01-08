@@ -41,6 +41,7 @@ export const useGameStore = defineStore("game", () => {
     const players = ref<{ [key: string]: Player }>({});
     const drops: { [key: string]: Slot[] } = {};
     const inventory = ref<(Slot | null)[]>([]);
+    const hand = ref<Slot | null>(null);
 
     const showInventory = ref(false);
 
@@ -410,6 +411,7 @@ export const useGameStore = defineStore("game", () => {
             currentPlayer.value = data.result.my_self;
 
             inventory.value = data.result.inventory;
+            hand.value = data.result.hand;
 
             const players = data.result.players;
             for (const key in players) {
@@ -544,6 +546,7 @@ export const useGameStore = defineStore("game", () => {
             messages.value.push(chatMessage);
         } else if (data.type === "inventory") {
             inventory.value = data.result.inventory;
+            hand.value = data.result.hand;
         } else if (data.type === "connect_player") {
             updatePlayer(data.result.player);
         } else if (data.type === "disconnect_player") {
@@ -658,11 +661,11 @@ export const useGameStore = defineStore("game", () => {
 
     function onBlockClick(event: PointerEvent) {
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / (window.innerHeight - 60)) * 2 + 1;
+        mouse.y = -(event.clientY / (window.innerHeight - 50)) * 2 + 1;
 
         raycaster.setFromCamera(mouse, camera.value!);
 
-        const intersects = raycaster.intersectObjects(scene.value!.children, true);
+        const intersects = raycaster.intersectObjects(toRaw(scene.value!).children, true);
 
         const player = currentPlayer.value;
         if (!player) return;
@@ -720,11 +723,11 @@ export const useGameStore = defineStore("game", () => {
 
     function onBlockPress(event: PointerEvent) {
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / (window.innerHeight - 60)) * 2 + 1;
+        mouse.y = -(event.clientY / (window.innerHeight - 50)) * 2 + 1;
 
         raycaster.setFromCamera(mouse, camera.value!);
 
-        const intersects = raycaster.intersectObjects(scene.value!.children, true);
+        const intersects = raycaster.intersectObjects(toRaw(scene.value!).children, true);
 
         if (intersects.length > 0) {
             // находим ближайший видимый блок
@@ -844,7 +847,7 @@ export const useGameStore = defineStore("game", () => {
     }
 
     document.addEventListener("keydown", (event) => {
-        if(!inGame.value) return;
+        if(!inGame.value || showInventory.value) return;
 
         if (!currentPlayer.value) return;
 
@@ -866,9 +869,6 @@ export const useGameStore = defineStore("game", () => {
                 break;
             case "KeyD":
                 side = "right";
-                break;
-            case "KeyQ":
-                action = action == "move" ? "break" : "move";
                 break;
             case "KeyE":
                 showInventory.value = !showInventory.value;
@@ -961,6 +961,7 @@ export const useGameStore = defineStore("game", () => {
         currentPlayer,
         texturesLoaded,
         inventory,
+        hand,
         showInventory,
 
         // threejs

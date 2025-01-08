@@ -1,79 +1,81 @@
 <template>
-    <div class="inventory">
-        <div class="slot" v-for="i in 9">
-            <div v-if="inventory[i]" class="item" :key="i">
-                <img :alt="`item_${i}`" ref="itemElements" />
-                <span class="count">{{ inventory[i].count }}</span>
+    <div class="inventory-hud">
+        <div class="slot">
+            <div v-if="hand" class="item">
+                <img />
+                <span class="count">{{ hand.count }}</span>
             </div>
+        </div>
+        <div class="slot" @click="showInventory = !showInventory">
+            <Icon icon="pixelarticons:more-horizontal" height="1.1rem" width="1.1rem" />
         </div>
     </div>
 </template>
 <script lang="ts" setup>
-import { watch, ref } from 'vue';
-
 import { storeToRefs } from 'pinia';
 import { useGameStore } from '../stores/game';
 
-import Textures from '../game/textures';
+import { Icon } from "@iconify/vue";
 
 const game = useGameStore();
 
-const { inventory } = storeToRefs(game);
+const { hand, showInventory } = storeToRefs(game);
 
-const itemElements = ref<HTMLImageElement[]>([]);
+// watch(inventory, () => {
+//     for (let i = 0; i < 9; i++) {
+//         if (!inventory.value[i]) continue;
+//         getItemTexture(inventory.value[i]!.id).then((texture) => {
+//             console.log(texture);
+//             itemElements.value[i].src = texture;
+//         });
+//     }
+// });
 
-watch(inventory, () => {
-    for (let i = 0; i < 9; i++) {
-        if (!inventory.value[i]) continue;
-        getItemTexture(inventory.value[i]!.id).then((texture) => {
-            console.log(texture);
-            itemElements.value[i].src = texture;
-        });
-    }
-});
+// async function getItemTexture(item: number) {
+//     //@ts-ignore
+//     const texture: {url: string} = Textures.blocks[item.toString()];
 
-async function getItemTexture(item: number) {
-    //@ts-ignore
-    const texture: {url: string} = Textures.blocks[item.toString()];
+//     if (!texture) {
+//         return '';
+//     }
 
-    if (!texture) {
-        return '';
-    }
+//     const image: HTMLImageElement = await Textures.loadImage(texture.url);
+//     return convertImageToBase64(image);
+// }
 
-    const image: HTMLImageElement = await Textures.loadImage(texture.url);
-    return convertImageToBase64(image);
-}
-
-function convertImageToBase64(img: HTMLImageElement): string {
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        return canvas.toDataURL('image/png');
-    }
-    return '';
-}
+// function convertImageToBase64(img: HTMLImageElement): string {
+//     const canvas = document.createElement('canvas');
+//     canvas.width = img.width;
+//     canvas.height = img.height;
+//     const ctx = canvas.getContext('2d');
+//     if (ctx) {
+//         ctx.drawImage(img, 0, 0);
+//         return canvas.toDataURL('image/png');
+//     }
+//     return '';
+// }
 
 </script>
 <style lang="scss" scoped>
-.inventory{
+.inventory-hud{
     display: flex;
     position: fixed;
     bottom: 60px;
-    background-color: rgba(0, 0, 0, 0.5);
     height: 40px;
     width: fit-content;
     z-index: 100;
-    left: 0;
-    right: 0;
+    left: 50%;
+    right: 50%;
+    transform: translateX(-50%);
 
     .slot {
         height: 40px;
         width: 40px;
-        background-color: red;
+        background-color: rgba(0, 0, 0, 0.5);
         border: 1px solid black;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
         .item {
             width: inherit;

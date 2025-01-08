@@ -15,7 +15,7 @@ import eventBus from '../utils/eventBus';
 const game = useGameStore();
 const { scene, camera, renderer, texturesLoaded } = storeToRefs(game);
 
-const BOTTOM_BAR_HEIGHT = 60;
+const BOTTOM_BAR_HEIGHT = 50;
 
 onMounted(() => {
     scene.value = new THREE.Scene();
