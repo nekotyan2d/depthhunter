@@ -451,11 +451,11 @@ export const useGameStore = defineStore("game", () => {
 
                 Object.entries(playerMeshes).forEach(([, player]) => {
                     const nick = player.name.split("_")[1];
-                    if ((data.result.escape && nick === movedPlayer.nick) || players.find(p => p.nick === nick)) {
+                    if ((data.result.escape && nick === movedPlayer.nick) || players.find((p) => p.nick === nick)) {
                         playersGroup.remove(player);
                         delete playerMeshes[nick];
                     }
-                })
+                });
 
                 const serverChunks = data.result.chunks;
                 const drops = data.result.drops;
@@ -538,11 +538,15 @@ export const useGameStore = defineStore("game", () => {
                     delete dropMeshes[drop.name];
                 }
             });
+        } else if (data.type == "put") {
+            const x = data.result.coordinates.x;
+            const z = data.result.coordinates.z;
+            await editBlock(x, z, data.result.block);
         } else if (data.type === "msg") {
             const chatMessage = {
                 text: data.result.text,
-                time: Date.now()
-            }
+                time: Date.now(),
+            };
             messages.value.push(chatMessage);
         } else if (data.type === "inventory") {
             inventory.value = data.result.inventory;
@@ -694,15 +698,19 @@ export const useGameStore = defineStore("game", () => {
             const mesh = intersects[0].object;
             const blockX = mesh.userData.x;
             const blockZ = mesh.userData.z;
-            
+
             const isNeighbor =
-                (Math.abs(playerX - blockX) === 1 && playerZ === blockZ) || (Math.abs(playerZ - blockZ) === 1 && playerX === blockX);
-            if(isNeighbor) return;
+                (Math.abs(playerX - blockX) === 1 && playerZ === blockZ) ||
+                (Math.abs(playerZ - blockZ) === 1 && playerX === blockX);
+            if (isNeighbor) {
+                const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
+                send({ type: "put", data: { side } });
+            } else {
+                const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
 
-            const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
-
-            if (side != "unknown" && getBlockBySide(side) == 0) {
-                send({ type: "move", data: { side } });
+                if (side != "unknown" && getBlockBySide(side) == 0) {
+                    send({ type: "move", data: { side } });
+                }
             }
 
             // const intersectedObject = solidBlock.object;
@@ -847,7 +855,7 @@ export const useGameStore = defineStore("game", () => {
     }
 
     document.addEventListener("keydown", (event) => {
-        if(!inGame.value || showInventory.value) return;
+        if (!inGame.value || showInventory.value) return;
 
         if (!currentPlayer.value) return;
 
@@ -891,6 +899,19 @@ export const useGameStore = defineStore("game", () => {
             modifyScaleSize: settings.modifyScaleSize || false,
         };
     }
+    const draggedItemIndex = ref<number | null>(null);
+    function moveItem(i: number) {
+        if (draggedItemIndex.value === i) {
+            draggedItemIndex.value = null;
+            return;
+        }
+        if (draggedItemIndex.value) {
+            send({ type: "swap", data: { from: draggedItemIndex.value, to: i } });
+            draggedItemIndex.value = null;
+            return;
+        }
+        draggedItemIndex.value = i;
+    }
     //TODO добавить отрисовку границ чанков
     // watch(showChunkBorders, createChunkBorders);
 
@@ -931,7 +952,7 @@ export const useGameStore = defineStore("game", () => {
 
     async function render() {
         if (!inGame.value) return;
-        
+
         const renderStartedAt = Date.now();
 
         updateDrops();
@@ -963,6 +984,8 @@ export const useGameStore = defineStore("game", () => {
         inventory,
         hand,
         showInventory,
+        draggedItemIndex,
+        moveItem,
 
         // threejs
         scene,

@@ -6,9 +6,14 @@
                 <button @click="showInventory = !showInventory">x</button>
             </header>
             <div class="slot-grid">
-                <div class="slot" v-for="(slot, i) in inventory" :key="`slot_${i}`">
+                <div 
+                class="slot"
+                :class="{ 'selected': i === draggedItemIndex }"
+                v-for="(slot, i) in inventory"
+                :key="`slot_${i}`"
+                @click="game.moveItem(i)">
                     <div class="item" v-if="slot">
-                        <Image :src="`/textures/items/${items[slot.id as keyof typeof items].name}.png`" />
+                        <Image :src="`/textures/items/${items[slot.id as keyof typeof items].name}.png`" draggable="false"/>
                         <div class="count">{{ slot.count }}</div>
                     </div>
                 </div>
@@ -24,7 +29,8 @@ import { items } from '../game/assets';
 
 const game = useGameStore();
 
-const { inventory, showInventory } = storeToRefs(game);
+const { inventory, showInventory, draggedItemIndex } = storeToRefs(game);
+
 </script>
 <style lang="scss" scoped>
 .background {
@@ -35,7 +41,7 @@ const { inventory, showInventory } = storeToRefs(game);
     align-items: center;
     justify-content: center;
     position: fixed;
-    z-index: 100;
+    z-index: 99;
 
     .inventory {
         background-color: var(--color-bg);
@@ -46,6 +52,8 @@ const { inventory, showInventory } = storeToRefs(game);
         align-items: center;
         padding: 16px;
         gap: 8px;
+        width: 100vw;
+        max-width: 400px;
 
         header {
             display: flex;
@@ -60,11 +68,17 @@ const { inventory, showInventory } = storeToRefs(game);
 
         .slot-grid{
             display: grid;
-            grid-template-columns: repeat(9, 40px);
-            grid-template-rows: repeat(3, 40px);
+            grid-template-columns: repeat(9, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 100%;
 
             .slot {
                 border: 1px solid var(--color-bg-secondary);
+                aspect-ratio: 1;
+
+                &.selected {
+                    border-color: #c1c1c1;
+                }
 
                 .item {
                     position: relative;

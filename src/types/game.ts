@@ -67,6 +67,13 @@ declare global {
             dropped: number | null; // TODO здесь бы задать union идов предметов
         };
     }
+    interface ServerMessagePut {
+        type: "put";
+        result: {
+            coordinates: { x: number; z: number };
+            block: number; // TODO здесь бы задать union идов предметов
+        };
+    }
     interface ServerMessageMsg {
         type: "msg";
         result: {
@@ -79,14 +86,14 @@ declare global {
         result: {
             inventory: (Slot | null)[];
             hand: Slot | null;
-        }
+        };
     }
     interface ServerMessageDrop {
         type: "drop";
         result: {
             block: Block;
             items: Drop[];
-        }
+        };
     }
     interface ServerMessageConnectPlayer {
         type: "connect_player";
@@ -105,7 +112,7 @@ declare global {
         result: {
             error_code: string; // TODO здесь бы задать union кодов
             description: string;
-        }
+        };
     }
     type ServerMessage =
         | ServerMessageStart
@@ -113,6 +120,7 @@ declare global {
         | ServerMessageBreak
         | ServerMessageBroken
         | ServerMessageDrop
+        | ServerMessagePut
         | ServerMessageMsg
         | ServerMessageInventory
         | ServerMessageConnectPlayer

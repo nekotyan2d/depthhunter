@@ -1,8 +1,8 @@
 <template>
     <div class="inventory-hud">
-        <div class="slot">
+        <div class="slot" @click="game.moveItem(-1)">
             <div v-if="hand" class="item">
-                <img />
+                <Image :src="`/textures/items/${items[hand.id as keyof typeof items].name}.png`" draggable="false"/>
                 <span class="count">{{ hand.count }}</span>
             </div>
         </div>
@@ -16,45 +16,13 @@ import { storeToRefs } from 'pinia';
 import { useGameStore } from '../stores/game';
 
 import { Icon } from "@iconify/vue";
+import Image from './Image.vue';
+
+import { items } from '../game/assets';
 
 const game = useGameStore();
 
 const { hand, showInventory } = storeToRefs(game);
-
-// watch(inventory, () => {
-//     for (let i = 0; i < 9; i++) {
-//         if (!inventory.value[i]) continue;
-//         getItemTexture(inventory.value[i]!.id).then((texture) => {
-//             console.log(texture);
-//             itemElements.value[i].src = texture;
-//         });
-//     }
-// });
-
-// async function getItemTexture(item: number) {
-//     //@ts-ignore
-//     const texture: {url: string} = Textures.blocks[item.toString()];
-
-//     if (!texture) {
-//         return '';
-//     }
-
-//     const image: HTMLImageElement = await Textures.loadImage(texture.url);
-//     return convertImageToBase64(image);
-// }
-
-// function convertImageToBase64(img: HTMLImageElement): string {
-//     const canvas = document.createElement('canvas');
-//     canvas.width = img.width;
-//     canvas.height = img.height;
-//     const ctx = canvas.getContext('2d');
-//     if (ctx) {
-//         ctx.drawImage(img, 0, 0);
-//         return canvas.toDataURL('image/png');
-//     }
-//     return '';
-// }
-
 </script>
 <style lang="scss" scoped>
 .inventory-hud{
@@ -81,17 +49,22 @@ const { hand, showInventory } = storeToRefs(game);
             width: inherit;
             height: inherit;
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
 
             img {
-                width: 100%;
-                height: 100%;
+                width: 80%;
+                height: 80%;
                 display: block;
+                image-rendering: pixelated;
             }
 
             .count {
                 position: absolute;
                 bottom: 0;
                 right: 0;
+                font-size: 0.8rem;
             }
         }
     }
