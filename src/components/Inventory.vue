@@ -1,9 +1,9 @@
 <template>
-    <div class="background">
+    <div class="background" @click.self="onBackgroundClick">
         <div class="inventory">
             <header>
                 <div class="title">Инвентарь</div>
-                <button @click="showInventory = !showInventory">x</button>
+                <button @click="game.openInventory(false)">x</button>
             </header>
             <div class="slot-grid">
                 <div 
@@ -29,7 +29,13 @@ import { items } from '../game/assets';
 
 const game = useGameStore();
 
-const { inventory, showInventory, draggedItemIndex } = storeToRefs(game);
+const { inventory, draggedItemIndex } = storeToRefs(game);
+
+function onBackgroundClick(){
+    if(draggedItemIndex.value != null){
+        
+    }
+}
 
 </script>
 <style lang="scss" scoped>

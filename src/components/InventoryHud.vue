@@ -1,12 +1,12 @@
 <template>
     <div class="inventory-hud">
-        <div class="slot" @click="game.moveItem(-1)">
+        <div class="slot" :class="draggedItemIndex == -1 && 'selected'" @click="showInventory && game.moveItem(-1)">
             <div v-if="hand" class="item">
                 <Image :src="`/textures/items/${items[hand.id as keyof typeof items].name}.png`" draggable="false"/>
                 <span class="count">{{ hand.count }}</span>
             </div>
         </div>
-        <div class="slot" @click="showInventory = !showInventory">
+        <div class="slot" @click="game.openInventory(!showInventory)">
             <Icon icon="pixelarticons:more-horizontal" height="1.1rem" width="1.1rem" />
         </div>
     </div>
@@ -22,7 +22,7 @@ import { items } from '../game/assets';
 
 const game = useGameStore();
 
-const { hand, showInventory } = storeToRefs(game);
+const { hand, showInventory, draggedItemIndex } = storeToRefs(game);
 </script>
 <style lang="scss" scoped>
 .inventory-hud{
@@ -44,6 +44,10 @@ const { hand, showInventory } = storeToRefs(game);
         display: flex;
         align-items: center;
         justify-content: center;
+
+        &.selected {
+            border-color: #c1c1c1;
+        }
 
         .item {
             width: inherit;

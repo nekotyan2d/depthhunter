@@ -31,10 +31,10 @@ declare global {
         type: "start";
         result: {
             my_self: Player;
-            players: {[key: string]: Player};
-            chunks: {[key: string]: Chunk};
+            players: Record<string, Player>;
+            chunks: Record<string, Chunk>;
             inventory: (Slot | null)[];
-            drops: {x: number, z: number, items: Slot[]}[];
+            drops: { x: number; z: number; items: Slot[] }[];
             hand: Slot | null;
         };
     }
@@ -45,9 +45,10 @@ declare global {
             player: Player;
             players: Player[];
             escape_players: Player[];
-            chunks: {[key: string]: Chunk};
+            chunks: Record<string, Chunk>;
             escape: boolean;
-            drops: {x: number, z: number, items: Drop[]}[];
+            drops: { x: number; z: number; items: Drop[] }[];
+            available_after: number;
         };
     }
     interface ServerMessageBreak {

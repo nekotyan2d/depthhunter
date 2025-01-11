@@ -65,6 +65,7 @@ export const useGameStore = defineStore("game", () => {
     const texturesLoaded = ref(false);
 
     const inGame = ref(false);
+    let canMoveAfter = 0;
 
     const settings = getSettings();
     const showChunkBorders = ref(settings.showChunkBorders);
@@ -101,7 +102,7 @@ export const useGameStore = defineStore("game", () => {
 
             texture.name = id;
             textures.value.players[id] = texture;
-        })
+        });
 
         texturesLoaded.value = true;
         eventBus.emit("texturesLoaded");
@@ -303,25 +304,25 @@ export const useGameStore = defineStore("game", () => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d")!;
         const fontSize = 16;
-    
+
         canvas.width = 256;
         canvas.height = 64;
-    
+
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `${fontSize}px Monocraft`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-    
+
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
         texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
-    
+
         const material = new THREE.SpriteMaterial({ map: texture });
         const sprite = new THREE.Sprite(material);
         sprite.scale.set(2.4, 0.6, 1.2);
-    
+
         return sprite;
     }
 
@@ -355,10 +356,7 @@ export const useGameStore = defineStore("game", () => {
         const playerSceneZ = playerMesh!.position.z;
 
         Object.entries(players.value).forEach(([nick, player]) => {
-            if (
-                currentPlayer.value!.x == player.x &&
-                currentPlayer.value!.z == player.z
-            ) {
+            if (currentPlayer.value!.x == player.x && currentPlayer.value!.z == player.z) {
                 playersGroup.remove(playerMeshes[nick]);
                 delete playerMeshes[nick];
                 return;
@@ -413,6 +411,8 @@ export const useGameStore = defineStore("game", () => {
             inventory.value = data.result.inventory;
             hand.value = data.result.hand;
 
+            canMoveAfter = Date.now() + 200;
+
             const players = data.result.players;
             for (const key in players) {
                 if (players.hasOwnProperty(key)) {
@@ -430,6 +430,8 @@ export const useGameStore = defineStore("game", () => {
                 broken.value = null;
 
                 currentPlayer.value = movedPlayer;
+
+                canMoveAfter = data.result.available_after;
 
                 const players = data.result.players;
                 for (const key in players) {
@@ -810,11 +812,6 @@ export const useGameStore = defineStore("game", () => {
         return "unknown";
     }
 
-    let lastSentTime = 0;
-    const delay = 200;
-
-    let action = "move";
-
     function getBlockBySide(side: string): number {
         const player = currentPlayer.value!;
 
@@ -860,9 +857,11 @@ export const useGameStore = defineStore("game", () => {
         if (!currentPlayer.value) return;
 
         const currentTime = Date.now();
-        if (currentTime - lastSentTime < delay) {
+        if (currentTime - 50 < canMoveAfter) {
             return;
         }
+
+        canMoveAfter = currentTime + 500;
 
         let side;
         switch (event.code) {
@@ -881,13 +880,9 @@ export const useGameStore = defineStore("game", () => {
             case "KeyE":
                 showInventory.value = !showInventory.value;
                 break;
-            default:
-                return;
         }
-
-        lastSentTime = currentTime;
         if (side && getBlockBySide(side) == 0) {
-            const data = { type: action, data: { side } };
+            const data = { type: "move", data: { side } };
             send(data);
         }
     });
@@ -905,13 +900,65 @@ export const useGameStore = defineStore("game", () => {
             draggedItemIndex.value = null;
             return;
         }
-        if (draggedItemIndex.value) {
-            send({ type: "swap", data: { from: draggedItemIndex.value, to: i } });
+        if (draggedItemIndex.value != null) {
+            let draggedItem: Slot | null;
+            let targetItem: Slot | null;
+            if (draggedItemIndex.value == -1) {
+                draggedItem = hand.value!;
+            } else {
+                draggedItem = inventory.value[draggedItemIndex.value];
+            }
+            if (i == -1) {
+                targetItem = hand.value!;
+            } else {
+                targetItem = inventory.value[i];
+            }
+
+            if (draggedItem == null && targetItem == null) {
+                return;
+            }
+
+            if (draggedItem == null || targetItem == null) {
+                send({ type: "swap", data: { from: draggedItemIndex.value, to: i } });
+            } else if (draggedItem.id !== targetItem.id) {
+                send({ type: "swap", data: { from: draggedItemIndex.value, to: i } });
+            } else {
+                send({
+                    type: "transfer",
+                    data: {
+                        from: draggedItemIndex.value,
+                        to: i,
+                        count: draggedItem.count,
+                    },
+                });
+            }
             draggedItemIndex.value = null;
             return;
         }
         draggedItemIndex.value = i;
     }
+
+    function throwItem(side: "left" | "top" | "right" | "bottom") {
+        if (draggedItemIndex.value == null) return;
+
+        let draggedItem: Slot | null;
+        if (draggedItemIndex.value == -1) {
+            draggedItem = hand.value;
+        } else {
+            draggedItem = inventory.value[draggedItemIndex.value];
+        }
+
+        if (draggedItem == null) return;
+
+        send({ type: "away", data: { side, slot: draggedItemIndex.value, count: draggedItem.count } });
+        draggedItemIndex.value = null;
+    }
+
+    function openInventory(state: boolean) {
+        showInventory.value = state;
+        draggedItemIndex.value = null;
+    }
+
     //TODO добавить отрисовку границ чанков
     // watch(showChunkBorders, createChunkBorders);
 
@@ -985,7 +1032,9 @@ export const useGameStore = defineStore("game", () => {
         hand,
         showInventory,
         draggedItemIndex,
+        openInventory,
         moveItem,
+        throwItem,
 
         // threejs
         scene,
