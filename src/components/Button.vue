@@ -15,7 +15,7 @@ button {
     box-shadow: inset -4px 4px 0 0 rgba(255, 255, 255, 0.2);
     border-radius: 1px;
 
-    &[disabled="true"] {
+    &:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }

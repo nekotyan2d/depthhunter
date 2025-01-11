@@ -22,7 +22,7 @@ onMounted(() => {
     camera.value = new THREE.PerspectiveCamera(100, window.innerWidth / (window.innerHeight - BOTTOM_BAR_HEIGHT), 0.1, 1000);
     renderer.value = new THREE.WebGLRenderer();
 
-    camera.value.position.set(2, 5, 4);
+    camera.value.position.set(2, 5, 2);
     camera.value.lookAt(2, 0, 2);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
@@ -93,6 +93,6 @@ canvas {
     position: absolute;
     user-select: none;
     right: 0;
-    top: 0;
+    bottom: 0;
 }
 </style>

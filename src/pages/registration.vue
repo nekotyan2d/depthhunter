@@ -132,7 +132,7 @@ async function registerAccount(){
         .item {
             padding: 6px 12px;
             border-radius: 20px;
-            border: 1px solid var(--color-text);
+            background-color: var(--color-bg-secondary);
             cursor: pointer;
         }
     }

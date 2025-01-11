@@ -9,9 +9,9 @@ const model = defineModel<string>();
 <style lang="scss" scoped>
 input {
     outline: none;
-    border: 1.5px solid var(--color-bg-secondary);
-    border-radius: 16px;
-    background-color: transparent;
+    border-radius: 2px;
+    border: none;
+    background-color: var(--color-bg-secondary);
     height: 40px;
     padding: 0 16px;
     font-size: 1rem;
