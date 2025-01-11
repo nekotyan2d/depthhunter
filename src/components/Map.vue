@@ -1,5 +1,6 @@
 <template>
     <div class="map">
+        <div class="fps" v-if="fps">{{ fps }}</div>
         <div class="coordinates" v-if="game.currentPlayer">{{ game.currentPlayer.x }}:{{ game.currentPlayer.z }}</div>
     </div>
 </template>
@@ -13,7 +14,7 @@ import { storeToRefs } from 'pinia';
 import eventBus from '../utils/eventBus';
 
 const game = useGameStore();
-const { scene, camera, renderer, texturesLoaded } = storeToRefs(game);
+const { scene, camera, renderer, fps, texturesLoaded } = storeToRefs(game);
 
 const BOTTOM_BAR_HEIGHT = 50;
 
@@ -93,6 +94,13 @@ canvas {
     position: absolute;
     user-select: none;
     right: 0;
+    bottom: 0;
+}
+
+.fps {
+    position: absolute;
+    user-select: none;
+    left: 0;
     bottom: 0;
 }
 </style>

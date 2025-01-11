@@ -431,7 +431,7 @@ export const useGameStore = defineStore("game", () => {
 
                 currentPlayer.value = movedPlayer;
 
-                canMoveAfter = data.result.available_after;
+                canMoveAfter = Date.now() + 250;
 
                 const players = data.result.players;
                 for (const key in players) {
@@ -860,7 +860,7 @@ export const useGameStore = defineStore("game", () => {
         if (!currentPlayer.value) return;
 
         const currentTime = Date.now();
-        if (currentTime - 50 < canMoveAfter) {
+        if (currentTime < canMoveAfter) {
             return;
         }
 
@@ -889,6 +889,21 @@ export const useGameStore = defineStore("game", () => {
             send(data);
         }
     });
+
+    let lastFrameTime = performance.now();
+    let frameCount = 0;
+    const fps = ref(0);
+
+    function updateFps() {
+        const now = performance.now();
+        frameCount++;
+        const delta = now - lastFrameTime;
+        if (delta >= 1000) {
+            fps.value = frameCount;
+            frameCount = 0;
+            lastFrameTime = now;
+        }
+    }
 
     function getSettings() {
         const settings = JSON.parse(localStorage.getItem("settings") || "{}");
@@ -1008,6 +1023,7 @@ export const useGameStore = defineStore("game", () => {
         updateDrops();
         updateTextures();
         updatePlayers();
+        updateFps();
 
         playerMesh?.position.set(2, 0.75, 2);
 
@@ -1047,6 +1063,7 @@ export const useGameStore = defineStore("game", () => {
         initPlatform,
         onPointerDown,
         onPointerUp,
+        fps,
 
         // настройки
         showChunkBorders,
