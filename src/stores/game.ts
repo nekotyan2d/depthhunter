@@ -547,6 +547,7 @@ export const useGameStore = defineStore("game", () => {
         } else if (data.type === "msg") {
             const chatMessage = {
                 text: data.result.text,
+                command: data.result.command,
                 time: Date.now(),
             };
             messages.value.push(chatMessage);
@@ -700,6 +701,8 @@ export const useGameStore = defineStore("game", () => {
             const mesh = intersects[0].object;
             const blockX = mesh.userData.x;
             const blockZ = mesh.userData.z;
+
+            if (playerX == blockX && playerZ == blockZ) return;
 
             const isNeighbor =
                 (Math.abs(playerX - blockX) === 1 && playerZ === blockZ) ||

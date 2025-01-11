@@ -79,6 +79,7 @@ declare global {
         type: "msg";
         result: {
             text: string;
+            command: boolean;
         };
     }
     interface ServerMessageInventory {
