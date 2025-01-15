@@ -20,11 +20,18 @@ declare global {
         id: number;
         count: number;
         damage?: number;
+        initialDurability?: number;
     }
 
     interface Drop extends Slot {
         x: number;
         z: number;
+    }
+
+    interface Recipe {
+        craftingTable: boolean;
+        ingredients: Slot[];
+        result: Slot;
     }
 
     interface ServerMessageStart {
@@ -128,4 +135,6 @@ declare global {
         | ServerMessageConnectPlayer
         | ServerMessageDisconnectPlayer
         | ServerMessageError;
+
+    type Direction = "left" | "up" | "right" | "down";
 }

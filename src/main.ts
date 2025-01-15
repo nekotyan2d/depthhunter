@@ -5,8 +5,6 @@ import "./assets/scss/app.scss";
 
 import App from "./App.vue";
 
-import Assets from "./game/assets";
-
 import { createPinia } from "pinia";
 const pinia = createPinia();
 
@@ -16,20 +14,15 @@ import SettingsPage from "./pages/settings.vue";
 import RegistrationPage from "./pages/registration.vue";
 
 const routes = [
-    { path: '/chat', component: ChatPage},
-    { path: '/', component: GamePage},
-    { path: '/settings', component: SettingsPage},
-    { path: "/registration", component: RegistrationPage}
-]
+    { path: "/chat", component: ChatPage },
+    { path: "/", component: GamePage },
+    { path: "/settings", component: SettingsPage },
+    { path: "/registration", component: RegistrationPage },
+];
 
 const router = createRouter({
     history: createWebHistory(),
-    routes
-})
+    routes,
+});
 
-createApp(App)
-    .use(router)
-    .use(pinia)
-    .mount("#app");
-
-Assets.loadAssets()
+createApp(App).use(router).use(pinia).mount("#app");

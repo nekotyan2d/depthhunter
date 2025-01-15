@@ -3,29 +3,29 @@
         <div class="inventory">
             <header>
                 <div class="title">Инвентарь</div>
-                <button @click="game.openInventory(false)">x</button>
+                <button class="close" @click="game.openInventory(false)">
+                    <Icon icon="pixelarticons:close" height="24px" width="24px"/>
+                </button>
             </header>
             <div class="slot-grid">
-                <div 
-                class="slot"
-                :class="{ 'selected': i === draggedItemIndex }"
-                v-for="(slot, i) in inventory"
-                :key="`slot_${i}`"
-                @click="game.moveItem(i)">
-                    <div class="item" v-if="slot">
-                        <Image :src="`/textures/items/${items[slot.id as keyof typeof items].name}.png`" draggable="false"/>
-                        <div class="count">{{ slot.count }}</div>
-                    </div>
-                </div>
+                <Slot 
+                    v-for="(slot, i) in inventory" 
+                    :slot="slot" 
+                    :key="`slot_${i}`" 
+                    :selected="i === draggedItemIndex"
+                    @click="game.moveItem(i)"/>
+                
             </div>
+            <Crafting/>
         </div>
     </div>
 </template>
 <script lang="ts" setup>
 import { storeToRefs } from 'pinia';
 import { useGameStore } from '../stores/game';
-import Image from './Image.vue';
-import { items } from '../game/assets';
+import Crafting from './Crafting.vue';
+import Slot from './Slot.vue';
+import { Icon } from "@iconify/vue";
 
 const game = useGameStore();
 
@@ -60,6 +60,8 @@ function onBackgroundClick(){
         gap: 8px;
         width: 100vw;
         max-width: 400px;
+        max-height: 100vh;
+        max-height: 100dvh;
 
         header {
             display: flex;
@@ -69,6 +71,14 @@ function onBackgroundClick(){
             .title {
                 font-size: 1.1rem;
                 flex: 1;
+            }
+
+            .close {
+                background-color: transparent;
+                border: none;
+                outline: none;
+                color: var(--color-hint);
+                cursor: pointer;
             }
         }
 
@@ -80,34 +90,6 @@ function onBackgroundClick(){
 
             .slot {
                 border: 1px solid var(--color-bg-secondary);
-                aspect-ratio: 1;
-
-                &.selected {
-                    border-color: #c1c1c1;
-                }
-
-                .item {
-                    position: relative;
-                    height: 100%;
-                    width: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-
-                    img {
-                        height: 80%;
-                        width: 80%;
-                        display: block;
-                        image-rendering: pixelated;
-                    }
-
-                    .count {
-                        position: absolute;
-                        bottom: 0;
-                        right: 0;
-                        font-size: 0.8rem;
-                    }
-                }
             }
         }
     }

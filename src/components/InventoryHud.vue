@@ -1,11 +1,6 @@
 <template>
     <div class="inventory-hud">
-        <div class="slot" :class="draggedItemIndex == -1 && 'selected'" @click="showInventory && game.moveItem(-1)">
-            <div v-if="hand" class="item">
-                <Image :src="`/textures/items/${items[hand.id as keyof typeof items].name}.png`" draggable="false"/>
-                <span class="count">{{ hand.count }}</span>
-            </div>
-        </div>
+        <Slot :slot="hand" :selected="draggedItemIndex == -1" @click="showInventory && game.moveItem(-1)"/>
         <div class="slot" @click="game.openInventory(!showInventory)">
             <Icon icon="pixelarticons:more-horizontal" height="1.1rem" width="1.1rem" />
         </div>
@@ -16,9 +11,7 @@ import { storeToRefs } from 'pinia';
 import { useGameStore } from '../stores/game';
 
 import { Icon } from "@iconify/vue";
-import Image from './Image.vue';
-
-import { items } from '../game/assets';
+import Slot from './Slot.vue';
 
 const game = useGameStore();
 
@@ -44,33 +37,6 @@ const { hand, showInventory, draggedItemIndex } = storeToRefs(game);
         display: flex;
         align-items: center;
         justify-content: center;
-
-        &.selected {
-            border-color: #c1c1c1;
-        }
-
-        .item {
-            width: inherit;
-            height: inherit;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            img {
-                width: 80%;
-                height: 80%;
-                display: block;
-                image-rendering: pixelated;
-            }
-
-            .count {
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                font-size: 0.8rem;
-            }
-        }
     }
 }
 </style>

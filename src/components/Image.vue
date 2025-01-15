@@ -3,7 +3,9 @@
 </template>
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
-import Assets from '../game/assets';
+import { useAssetsStore } from '../stores/assets';
+
+const { loadAsset } = useAssetsStore();
 
 const props = defineProps<{
     src: string
@@ -20,7 +22,7 @@ async function load(){
     loading.value = true;
     if (!image.value) return;
 
-    const blob = await Assets.loadAsset(props.src);
+    const blob = await loadAsset(props.src);
 
     const url = URL.createObjectURL(blob);
     image.value.src = url;

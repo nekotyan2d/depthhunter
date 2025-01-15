@@ -9,7 +9,7 @@ import { useAppStore } from "./app";
 import { useChatStore } from "./chat";
 
 import eventBus from "../utils/eventBus";
-import Assets from "../game/assets";
+import { useAssetsStore } from "./assets";
 
 const logger = useLogger();
 
@@ -29,12 +29,17 @@ export const useGameStore = defineStore("game", () => {
     const chat = useChatStore();
     const { messages } = storeToRefs(chat);
 
+    const assets = useAssetsStore();
+    const { blockAssets, playerAssets, itemAssets } = storeToRefs(assets);
+
     const textures = ref<{
-        blocks: Record<string, BlockAssetSides>,
-        players: Record<string, THREE.Texture>
+        blocks: Record<string, BlockAssetSides>;
+        players: Record<string, THREE.Texture>;
+        items: Record<string, THREE.Texture>;
     }>({
         blocks: {},
         players: {},
+        items: {},
     });
 
     const chunks = ref<{ [key: string]: Chunk }>({});
@@ -44,6 +49,8 @@ export const useGameStore = defineStore("game", () => {
     const hand = ref<Slot | null>(null);
 
     const showInventory = ref(false);
+    const usingCraftingTable = ref(false);
+    const craftingTableSide = ref<Direction | null>(null);
 
     const scene = ref<THREE.Scene | null>(null);
     const camera = ref<THREE.PerspectiveCamera | null>(null);
@@ -75,9 +82,8 @@ export const useGameStore = defineStore("game", () => {
         await handleServerMessage(data);
     });
 
-    eventBus.on("assetsLoaded", () => {
-        const blockAssets = Assets.blockAssets;
-        Object.entries(blockAssets).forEach(([id, sidePaths]) => {
+    eventBus.on("assetsLoaded", async () => {
+        Object.entries(blockAssets.value).forEach(([id, sidePaths]) => {
             const sides: Partial<BlockAssetSides> = {};
             Object.entries(sidePaths).forEach(([side, asset]) => {
                 const base64 = URL.createObjectURL(asset);
@@ -93,8 +99,16 @@ export const useGameStore = defineStore("game", () => {
             textures.value.blocks[id] = sides as BlockAssetSides;
         });
 
-        const playerAssets = Assets.playerAssets;
-        Object.entries(playerAssets).forEach(([id, asset]) => {
+        // добавление ломаной текстуры
+        const base64 = URL.createObjectURL(await assets.generateBrokenTexture());
+        const texture = textureLoader.load(base64);
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+
+        texture.name = "broken_texture_main";
+        textures.value.blocks["broken_texture"] = { main: texture };
+
+        Object.entries(playerAssets.value).forEach(([id, asset]) => {
             const base64 = URL.createObjectURL(asset);
             const texture = textureLoader.load(base64);
             texture.magFilter = THREE.NearestFilter;
@@ -102,6 +116,16 @@ export const useGameStore = defineStore("game", () => {
 
             texture.name = id;
             textures.value.players[id] = texture;
+        });
+
+        Object.entries(itemAssets.value).forEach(([id, asset]) => {
+            const base64 = URL.createObjectURL(asset);
+            const texture = textureLoader.load(base64);
+            texture.magFilter = THREE.NearestFilter;
+            texture.minFilter = THREE.NearestFilter;
+
+            texture.name = id;
+            textures.value.items[id] = texture;
         });
 
         texturesLoaded.value = true;
@@ -214,7 +238,11 @@ export const useGameStore = defineStore("game", () => {
                 block.userData = { x, z };
 
                 if (coordinates !== 0) {
-                    texture = textures.value.blocks[coordinates].main;
+                    if (coordinates in textures.value.blocks) {
+                        texture = textures.value.blocks[coordinates].main;
+                    } else {
+                        texture = textures.value.blocks["broken_texture"].main;
+                    }
                     if (!platformCreated) {
                         platformCreated = true;
                         eventBus.emit("platformCreated", {});
@@ -280,8 +308,14 @@ export const useGameStore = defineStore("game", () => {
                 }
 
                 const geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+                let texture: THREE.Texture;
+                if (drop.id in textures.value.items) {
+                    texture = textures.value.items[drop.id.toString()];
+                } else {
+                    texture = textures.value.blocks["broken_texture"].main;
+                }
                 const material = new THREE.MeshStandardMaterial({
-                    map: textures.value.blocks[drop.id.toString()].main,
+                    map: texture,
                 });
 
                 dropMesh = new THREE.Mesh(geometry, material);
@@ -708,12 +742,27 @@ export const useGameStore = defineStore("game", () => {
                 (Math.abs(playerX - blockX) === 1 && playerZ === blockZ) ||
                 (Math.abs(playerZ - blockZ) === 1 && playerX === blockX);
             if (isNeighbor) {
+                const chunkX = Math.floor(blockX / CHUNK_SIZE);
+                const chunkZ = Math.floor(blockZ / CHUNK_SIZE);
+
+                const localBlockX = ((blockX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+                const localBlockZ = ((blockZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+                const block = chunks.value[`${chunkX}:${chunkZ}`].chunk[localBlockX][localBlockZ];
+
+                if (block == 14) {
+                    usingCraftingTable.value = true;
+                    openInventory(true);
+                    craftingTableSide.value = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
+                    return;
+                }
+
                 const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
                 send({ type: "put", data: { side } });
             } else {
                 const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
 
-                if (side != "unknown" && getBlockBySide(side) == 0) {
+                if (side != null && getBlockBySide(side) == 0) {
                     send({ type: "move", data: { side } });
                 }
             }
@@ -798,7 +847,12 @@ export const useGameStore = defineStore("game", () => {
         }
     }
 
-    function getBlockSideFromPlayer(playerX: number, playerZ: number, blockX: number, blockZ: number): string {
+    function getBlockSideFromPlayer(
+        playerX: number,
+        playerZ: number,
+        blockX: number,
+        blockZ: number
+    ): Direction | null {
         if (blockX === playerX) {
             if (blockZ > playerZ) {
                 return "down";
@@ -812,10 +866,10 @@ export const useGameStore = defineStore("game", () => {
                 return "left";
             }
         }
-        return "unknown";
+        return null;
     }
 
-    function getBlockBySide(side: string): number {
+    function getBlockBySide(side: Direction): number {
         const player = currentPlayer.value!;
 
         //if(!player) return -1; //TODO правильно добавить проверку на наличие игрока
@@ -866,7 +920,7 @@ export const useGameStore = defineStore("game", () => {
 
         canMoveAfter = currentTime + 500;
 
-        let side;
+        let side: Direction | undefined;
         switch (event.code) {
             case "KeyW":
                 side = "up";
@@ -956,7 +1010,7 @@ export const useGameStore = defineStore("game", () => {
         draggedItemIndex.value = i;
     }
 
-    function throwItem(side: "left" | "top" | "right" | "bottom") {
+    function throwItem(side: Direction) {
         if (draggedItemIndex.value == null) return;
 
         let draggedItem: Slot | null;
@@ -975,6 +1029,16 @@ export const useGameStore = defineStore("game", () => {
     function openInventory(state: boolean) {
         showInventory.value = state;
         draggedItemIndex.value = null;
+        if (!state) {
+            usingCraftingTable.value = false;
+        }
+    }
+
+    function craftItem(item: number, side?: Direction) {
+        send({
+            type: "crafting",
+            data: { item, ...(usingCraftingTable.value && { side: side || craftingTableSide.value }) },
+        });
     }
 
     //TODO добавить отрисовку границ чанков
@@ -1051,9 +1115,11 @@ export const useGameStore = defineStore("game", () => {
         hand,
         showInventory,
         draggedItemIndex,
+        usingCraftingTable,
         openInventory,
         moveItem,
         throwItem,
+        craftItem,
 
         // threejs
         scene,
