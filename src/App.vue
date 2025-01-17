@@ -63,7 +63,7 @@ async function initTelegramApp() {
 
 async function verifyWithServer(initData: string) {
     try {
-        const response = await fetch(`https://${import.meta.env.VITE_APP_BACKEND_URL}/api/init`, {
+        const response = await fetch(`https://${app.backendUrl}/api/init`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ initData }),

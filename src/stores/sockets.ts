@@ -3,14 +3,18 @@ import { ref } from "vue";
 
 import { useLogger } from "../composables/useLogger";
 import eventBus from "../utils/eventBus";
+import { useAppStore } from "./app";
+
 const logger = useLogger();
 
 export const useSocketsStore = defineStore("sockets", () => {
+    const app = useAppStore();
+
     const connection = ref<WebSocket | null>(null);
 
     const connect = (token: string) => {
         const proto = location.protocol === "https:" ? "wss" : "ws";
-        connection.value = new WebSocket(`${proto}://${import.meta.env.VITE_APP_BACKEND_URL}?token=${token}`);
+        connection.value = new WebSocket(`${proto}://${app.backendUrl}?token=${token}`);
 
         connection.value.onopen = () => {
             logger.info("Подключено");
@@ -18,7 +22,7 @@ export const useSocketsStore = defineStore("sockets", () => {
         connection.value.onmessage = async (event) => {
             logger.info(event.data);
             eventBus.emit("serverMessage", JSON.parse(event.data));
-        }
+        };
         connection.value.onclose = () => {
             logger.info("Отключено");
             connection.value = null;
@@ -44,4 +48,4 @@ export const useSocketsStore = defineStore("sockets", () => {
         close,
         send,
     };
-})
+});

@@ -3,10 +3,13 @@ import eventBus from "../utils/eventBus";
 import { useLogger } from "../composables/useLogger";
 import { ofetch } from "ofetch";
 import { ref } from "vue";
+import { useAppStore } from "./app";
 
 const logger = useLogger();
 
 export const useAssetsStore = defineStore("assets", () => {
+    const app = useAppStore();
+
     const request = indexedDB.open("assetsCacheDB", 1);
     let db: IDBDatabase;
 
@@ -87,7 +90,7 @@ export const useAssetsStore = defineStore("assets", () => {
             promises.push(promise);
         });
 
-        const recipesPromise = ofetch(`https://${import.meta.env.VITE_APP_BACKEND_URL}/api/assets`).then((data) => {
+        const recipesPromise = ofetch(`https://${app.backendUrl}/api/assets`).then((data) => {
             if (data.ok) {
                 recipes.value = data.response.recipes;
             } else {
@@ -137,6 +140,11 @@ export const useAssetsStore = defineStore("assets", () => {
             saveAsset(path, asset);
             return asset;
         }
+    }
+
+    function clearAssets() {
+        const transaction = db.transaction("assets", "readwrite");
+        transaction.objectStore("assets").clear();
     }
 
     function generateBrokenTexture(): Promise<Blob> {
@@ -252,6 +260,7 @@ export const useAssetsStore = defineStore("assets", () => {
         recipes,
         loadAssets,
         loadAsset,
+        clearAssets,
         generateBrokenTexture,
     };
 });

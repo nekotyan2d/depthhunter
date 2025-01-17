@@ -10,8 +10,14 @@ export const useAppStore = defineStore("app", () => {
     const isLoading = ref(true);
     const initData = ref("");
 
+    const backendUrl = ref(import.meta.env.VITE_APP_BACKEND_URL);
+    const settings = JSON.parse(localStorage.getItem("settings") || "{}");
+    if ("backendUrl" in settings) {
+        backendUrl.value = settings.backendUrl;
+    }
+
     const showFatalError = (error: Error, hide?: boolean) => {
-        if(hide){
+        if (hide) {
             fatalError.value.occurred = false;
             fatalError.value.message = "";
             return;
@@ -19,12 +25,13 @@ export const useAppStore = defineStore("app", () => {
 
         fatalError.value.occurred = true;
         fatalError.value.message = error.message;
-    }
+    };
 
     return {
         fatalError,
         showFatalError,
         isLoading,
-        initData
-    }
+        initData,
+        backendUrl,
+    };
 })
