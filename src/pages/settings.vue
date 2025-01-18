@@ -40,7 +40,7 @@ const game = useGameStore();
 const { clearAssets } = useAssetsStore();
 
 const { showChunkBorders, modifyScaleSize } = storeToRefs(game);
-const { backendUrl } = storeToRefs(app);
+const backendUrl = ref(`${app.backendProtocol}//${app.backendHost}`);
 
 watch([showChunkBorders, modifyScaleSize], () => {
     localStorage.setItem("settings", JSON.stringify({ showChunkBorders: showChunkBorders.value, modifyScaleSize: modifyScaleSize.value }));

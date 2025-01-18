@@ -42,7 +42,7 @@ watch(nick, checkNick);
 
 async function getProposals(){
     try {
-        const data = await ofetch(`https://${app.backendUrl}/api/nick/proposals`, {
+        const data = await ofetch(`${app.backendProtocol}//${app.backendHost}/api/nick/proposals`, {
             headers: { 'Content-Type': 'application/json' },
             query: {
                 initData: initData.value
@@ -63,7 +63,7 @@ async function getProposals(){
 
 async function checkNick(){
     try {
-        const response = await fetch(`https://${app.backendUrl}/api/nick/check?nick=${nick.value}`, {
+        const response = await fetch(`${app.backendProtocol}//${app.backendHost}/api/nick/check?nick=${nick.value}`, {
             headers: { 'Content-Type': 'application/json' },
         });
 
@@ -87,7 +87,7 @@ async function checkNick(){
 
 async function registerAccount(){
     try {
-        const data = await ofetch(`https://${app.backendUrl}/api/registration`, {
+        const data = await ofetch(`${app.backendProtocol}//${app.backendHost}/api/registration`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: {

@@ -15,6 +15,9 @@ export const useAppStore = defineStore("app", () => {
     if ("backendUrl" in settings) {
         backendUrl.value = settings.backendUrl;
     }
+    const url = new URL(backendUrl.value);
+    const backendHost = url.host;
+    const backendProtocol = url.protocol;
 
     const showFatalError = (error: Error, hide?: boolean) => {
         if (hide) {
@@ -32,6 +35,7 @@ export const useAppStore = defineStore("app", () => {
         showFatalError,
         isLoading,
         initData,
-        backendUrl,
+        backendHost,
+        backendProtocol,
     };
 })

@@ -90,7 +90,7 @@ export const useAssetsStore = defineStore("assets", () => {
             promises.push(promise);
         });
 
-        const recipesPromise = ofetch(`https://${app.backendUrl}/api/assets`).then((data) => {
+        const recipesPromise = ofetch(`${app.backendProtocol}//${app.backendHost}/api/assets`).then((data) => {
             if (data.ok) {
                 recipes.value = data.response.recipes;
             } else {
