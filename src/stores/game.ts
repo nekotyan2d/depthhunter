@@ -746,7 +746,7 @@ export const useGameStore = defineStore("game", () => {
             const z = data.result.coordinates.z;
             await editBlock(x, z, data.result.block);
 
-            if (data.result.hand) hand.value = data.result.hand;
+            if (data.result.hand || data.result.hand === null) hand.value = data.result.hand;
         } else if (data.type === "msg") {
             const chatMessage = {
                 text: data.result.text,
