@@ -127,6 +127,8 @@ function sendMessage() {
         .message {
             border-left: 4px solid transparent;
             padding-left: 12px;
+            word-break: break-word;
+            white-space: pre-wrap;
         }
 
         .message.command {
