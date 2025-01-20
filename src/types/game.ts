@@ -28,6 +28,36 @@ declare global {
         z: number;
     }
 
+    interface BlockParams {
+        id: number;
+        name: string;
+        drop: number; // id предмета, который выпадает при разрушении
+        properties: {
+            hardness: number;
+            harvestTool: "pickaxe" | "axe" | "shovel";
+            minLevel: number;
+        };
+    }
+
+    interface BaseItem {
+        id: number;
+        name: string;
+        count: number;
+    }
+
+    interface BlockItem extends BaseItem {
+        place: number; // id блока, который появляется при размещении
+    }
+
+    interface ToolItem extends BaseItem {
+        tool: {
+            type: "pickaxe" | "axe" | "shovel";
+            level: number;
+            damage: number;
+        };
+    }
+
+    type Item = BaseItem | BlockItem | ToolItem;
     interface Recipe {
         craftingTable: boolean;
         ingredients: Slot[];
@@ -66,6 +96,7 @@ declare global {
             progress: number;
             broken: boolean;
             dropped: number | null; // TODO здесь бы задать union идов предметов
+            hand: Slot | null;
         };
     }
     interface ServerMessageBroken {
@@ -80,6 +111,7 @@ declare global {
         result: {
             coordinates: { x: number; z: number };
             block: number; // TODO здесь бы задать union идов предметов
+            hand: Slot | null;
         };
     }
     interface ServerMessageMsg {

@@ -5,7 +5,7 @@
     <template v-else>
         <div v-show="app.isLoading" class="loading">
             <div class="loader">
-                <Image src="/img/loading.webp" alt="Загрузка" width="100" height="100" />
+                <Image src="img/loading.webp" alt="Загрузка" width="100" height="100" />
             </div>
             <div v-if="showLoadingText" class="text">Загрузка...</div>
         </div>

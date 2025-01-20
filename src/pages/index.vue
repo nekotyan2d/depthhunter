@@ -1,7 +1,9 @@
 <template>
     <div class="game">
-        <InventoryHud/>
-        <Inventory v-show="showInventory"/>
+        <template v-if="texturesLoaded">
+            <InventoryHud/>
+            <Inventory v-show="showInventory"/>
+        </template>
         <Map/>
     </div>
 </template>
@@ -14,5 +16,5 @@ import { useGameStore } from '../stores/game';
 import { storeToRefs } from 'pinia';
 const game = useGameStore();
 
-const { showInventory } = storeToRefs(game);
+const { showInventory, texturesLoaded } = storeToRefs(game);
 </script>

@@ -16,7 +16,7 @@
                     @click="game.moveItem(i)"/>
                 
             </div>
-            <Crafting/>
+            <Crafting v-if="inventory.length > 0"/>
         </div>
     </div>
 </template>

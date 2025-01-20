@@ -20,9 +20,16 @@ watch(() => props.src, () => load());
 
 async function load(){
     loading.value = true;
+    let src;
+    try {
+        new URL(props.src);
+        src = props.src;
+    } catch (error) {
+        src = `${window.location.protocol}//${window.location.host}/${props.src}`;
+    }
     if (!image.value) return;
 
-    const blob = await loadAsset(props.src);
+    const blob = await loadAsset(src);
 
     const url = URL.createObjectURL(blob);
     image.value.src = url;

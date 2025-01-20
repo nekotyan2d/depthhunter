@@ -9,7 +9,7 @@ const logger = useLogger();
 
 export const useAssetsStore = defineStore("assets", () => {
     const app = useAppStore();
-
+    
     const request = indexedDB.open("assetsCacheDB", 1);
     let db: IDBDatabase;
 
@@ -29,88 +29,229 @@ export const useAssetsStore = defineStore("assets", () => {
         };
     });
 
-    const blockAssets = ref<Record<string, BlockAssetSides>>({});
     const playerAssets = ref<Record<string, Blob>>({});
-    const itemAssets = ref<Record<string, Blob>>({});
+    const objectAssets = ref<Record<string, BlockAssets>>({});
 
     const recipes = ref<Record<string, Recipe>>({});
+    const blocks = ref<Record<number, BlockParams>>({});
+    const items = ref<Record<number, Item>>({});
 
     async function loadAssets() {
         logger.info("Начало загрузки ассетов");
 
-        // загрузка шрифта
-        new FontFace("Monocraft", "url(fonts/Monocraft.otf)").load().then((font) => {
-            document.fonts.add(font);
-            eventBus.emit("fontLoaded");
-        });
-
-        await waitDBInitialization;
-        const promises: Promise<void>[] = [];
-        // загрузка текстур блоков
-        Object.entries(blocks).forEach(([id, sidePaths]) => {
-            const sides: Partial<BlockAssetSides> = {};
-            // проходим по всем сторонам блока
-            const sidePromises = Object.entries(sidePaths).map(async ([side, path]) => {
-                loadAsset(`textures/blocks/${path}.png`)
-                    .then((asset) => {
-                        sides[side as keyof BlockAssetSides] = asset;
-                    })
-                    .catch(async () => {
-                        sides[side as keyof BlockAssetSides] = await generateBrokenTexture();
-                    });
+        try {
+            // загрузка шрифта
+            new FontFace("Monocraft", "url(fonts/Monocraft.otf)").load().then((font) => {
+                document.fonts.add(font);
+                eventBus.emit("fontLoaded");
             });
-            promises.push(
-                Promise.all(sidePromises).then(() => {
-                    blockAssets.value[id] = sides as BlockAssetSides;
-                })
-            );
-        });
 
-        // загрузка текстур игроков
-        Object.entries(players).forEach(async ([id, { url }]) => {
-            const promise = loadAsset(`textures/other/${url}.png`)
-                .then((asset) => {
-                    playerAssets.value[id] = asset;
-                })
-                .catch(async () => {
-                    playerAssets.value[id] = await generateBrokenTexture();
-                });
-            promises.push(promise);
-        });
+            await waitDBInitialization;
 
-        // загрузка текстур предметов
-        Object.entries(items).forEach(async ([id, { name }]) => {
-            const promise = loadAsset(`textures/items/${name}.png`)
-                .then((asset) => {
-                    itemAssets.value[id] = asset;
-                })
-                .catch(async () => {
-                    itemAssets.value[id] = await generateBrokenTexture();
-                });
-            promises.push(promise);
-        });
+            const response = await ofetch<AssetsResponse>(`${app.backendProtocol}//${app.backendHost}/api/assets`);
+            if (!response || !response.ok) throw new Error("Ошибка загрузки ассетов");
 
-        const recipesPromise = ofetch(`${app.backendProtocol}//${app.backendHost}/api/assets`).then((data) => {
-            if (data.ok) {
-                recipes.value = data.response.recipes;
-            } else {
-                logger.error(`Ошибка загрузки рецептов: ${data.response.exception}`);
+            const { textures, assets } = response.response;
+
+            const { blockTextures, itemTextures } = textures;
+
+            blocks.value = assets.blocks;
+            items.value = assets.items;
+            recipes.value = assets.recipes;
+
+            const promises: Promise<void>[] = [];
+
+            // загрузка текстур блоков
+            async function loadCubeAll(id: number, block: BlockTexturesAll) {
+                const name = blocks.value[id].name;
+                const all = await loadAsset(block.textures.all);
+                objectAssets.value[name] = {
+                    parent: "block/cube_all",
+                    assets: { all },
+                };
             }
-        });
-        promises.push(recipesPromise);
+            async function loadCubeSided(id: number, block: BlockTexturesSided) {
+                const name = blocks.value[id].name;
+                const up = await loadAsset(block.textures.up);
+                const north = await loadAsset(block.textures.north);
+                const west = await loadAsset(block.textures.west);
+                const east = await loadAsset(block.textures.east);
+                const south = await loadAsset(block.textures.south);
+                objectAssets.value[name] = {
+                    parent: "block/cube",
+                    assets: { up, north, west, east, south },
+                };
+            }
 
-        await Promise.all(promises);
+            async function loadCubeColumn(id: number, block: BlockTexturesColumn) {
+                const name = blocks.value[id].name;
+                const end = await loadAsset(block.textures.end);
+                const side = await loadAsset(block.textures.side);
+                objectAssets.value[name] = {
+                    parent: "block/cube_column",
+                    assets: { end, side },
+                };
+            }
 
-        saveAsset("/textures/other/broken_texture.png", await generateBrokenTexture());
+            Object.entries(blockTextures).forEach(async ([id, block]) => {
+                switch (block.parent) {
+                    case "block/cube_all":
+                        promises.push(loadCubeAll(+id, block));
+                        break;
+                    case "block/cube":
+                        promises.push(loadCubeSided(+id, block));
+                        break;
+                    case "block/cube_column":
+                        promises.push(loadCubeColumn(+id, block));
+                        break;
+                }
+            });
 
-        logger.info("Ассеты загружены");
+            // загрузка текстур игроков
+            Object.entries(players).forEach(async ([id, { url }]) => {
+                const promise = loadAsset(url).then((asset) => {
+                    playerAssets.value[id] = asset;
+                });
+                promises.push(promise);
+            });
 
-        eventBus.emit("assetsLoaded");
+            // загрузка текстур предметов
+            async function loadItemHandheld(id: number, item: ItemsTextures) {
+                const name = items.value[id].name;
+                const layer0 = await loadAsset(item.textures.layer0);
+                objectAssets.value[name] = {
+                    parent: "item/handheld",
+                    assets: { layer0 },
+                };
+            }
+
+            async function generate3dModel(name: string, asset: BlockAssets) {
+                const canvas = document.createElement("canvas");
+                canvas.width = 32;
+                canvas.height = 32;
+                const ctx = canvas.getContext("2d")!;
+                ctx.imageSmoothingEnabled = false;
+
+                const loadImage = (blob: Blob): Promise<HTMLImageElement> => {
+                    return new Promise((resolve) => {
+                        const img = document.createElement("img");
+                        img.src = URL.createObjectURL(blob);
+                        img.onload = () => resolve(img);
+                    });
+                };
+
+                const drawCube = async (upBlob: Blob, leftBlob: Blob, rightBlob: Blob) => {
+                    const up = await loadImage(upBlob);
+                    const left = await loadImage(leftBlob);
+                    const right = await loadImage(rightBlob);
+
+                    // Draw top face
+                    ctx.save();
+                    ctx.transform(1, -0.5, 1, 0.5, 0, 8);
+                    ctx.drawImage(up, 0, 0, 16, 16);
+                    ctx.restore();
+
+                    // Draw left face
+                    ctx.save();
+                    ctx.transform(1, 0.5, 0, 1, 0, 8);
+                    ctx.filter = "brightness(70%)";
+                    ctx.drawImage(left, 0, 0, 16, 16);
+                    ctx.restore();
+
+                    // Draw right face
+                    ctx.save();
+                    ctx.transform(1, -0.5, 0, 1, 16, 16);
+                    ctx.filter = "brightness(50%)";
+                    ctx.drawImage(right, 0, 0, 16, 16);
+                    ctx.restore();
+                };
+
+                const drawItem = async (layer0: Blob) => {
+                    const img = await loadImage(layer0);
+                    ctx.drawImage(img, 0, 0, 32, 32);
+                };
+                switch (asset.parent) {
+                    case "block/cube":
+                        await drawCube(asset.assets.up, asset.assets.west, asset.assets.south);
+                        break;
+                    case "block/cube_column":
+                        await drawCube(asset.assets.end, asset.assets.side, asset.assets.side);
+                        break;
+                    case "block/cube_all":
+                        await drawCube(asset.assets.all, asset.assets.all, asset.assets.all);
+                        break;
+                    case "item/handheld":
+                        await drawItem(asset.assets.layer0);
+                        break;
+                }
+                const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
+                if (!blob) throw new Error("Failed to create blob from canvas");
+                await saveAsset(`/models/${name}.png`, blob);
+            }
+
+            Object.entries(itemTextures).forEach(async ([id, item]) => {
+                if (item.parent == "item/handheld") {
+                    promises.push(loadItemHandheld(+id, item));
+                }
+            });
+
+            await Promise.all(promises);
+
+            async function generateAll3dModels() {
+                const checkAsset = async (name: string, asset: BlockAssets) => {
+                    try {
+                        await getAsset(`/models/${name}.png`);
+                    } catch (error) {
+                        await generate3dModel(name, asset);
+                    }
+                };
+                const generatePromises: Promise<void>[] = [];
+                Object.entries(objectAssets.value).forEach(async ([name, asset]) => {
+                    generatePromises.push(checkAsset(name, asset));
+                });
+                await Promise.all(generatePromises);
+            }
+
+            await generateAll3dModels();
+
+            async function loadDestroyStages() {
+                const loadDestroyStage = async (n: number) => {
+                    const name = `destroy_stage_${n}`;
+                    objectAssets.value[name] = {
+                        parent: "block/cube_all",
+                        assets: { all: await loadAsset(`${import.meta.env.VITE_APP_STORAGE_URL}/${name}.png`) },
+                    };
+                };
+                const promises: Promise<void>[] = [];
+                for (let i = 0; i < 10; i++) {
+                    promises.push(loadDestroyStage(i));
+                }
+                await Promise.all(promises);
+            }
+
+            await loadDestroyStages();
+
+            logger.info("Ассеты загружены");
+
+            eventBus.emit("assetsLoaded");
+        } catch (error) {
+            console.error(error);
+            logger.error("Ошибка загрузки ассетов");
+        }
     }
 
     function saveAsset(path: string, asset: Blob) {
-        const transaction = db.transaction("assets", "readwrite");
-        transaction.objectStore("assets").put({ path, asset });
+        return new Promise<void>((resolve, reject) => {
+            const transaction = db.transaction("assets", "readwrite");
+            const request = transaction.objectStore("assets").put({ path, asset });
+
+            request.onsuccess = () => {
+                transaction.oncomplete = () => resolve();
+            };
+
+            request.onerror = () => reject(request.error);
+            transaction.onerror = () => reject(transaction.error);
+        });
     }
 
     function getAsset(path: string): Promise<Blob> {
@@ -128,17 +269,31 @@ export const useAssetsStore = defineStore("assets", () => {
         });
     }
 
-    async function loadAsset(path: string) {
+    function getAssetPath(url: string) {
+        try {
+            const urlObj = new URL(url);
+            return urlObj.pathname;
+        } catch (error) {
+            return url;
+        }
+    }
+
+    async function loadAsset(url: string) {
+        await waitDBInitialization;
         try {
             // пробуем взять файл из кэша
-            const asset = await getAsset(path);
+            const asset = await getAsset(getAssetPath(url));
             return asset;
         } catch {
-            // если файл не найден в кэше, загружаем его
-            const response = await fetch(`${location.protocol}//${location.host}/${path}`);
-            const asset = await response.blob();
-            saveAsset(path, asset);
-            return asset;
+            try {
+                // если файл не найден в кэше, загружаем его
+                const response = await fetch(url);
+                const asset = await response.blob();
+                await saveAsset(getAssetPath(url), asset);
+                return asset;
+            } catch (error) {
+                return await generateBrokenTexture();
+            }
         }
     }
 
@@ -175,89 +330,22 @@ export const useAssetsStore = defineStore("assets", () => {
         });
     }
 
-    // текстуры блоков
-    const blocks = {
-        "1": { main: "stone" },
-        "2": { main: "coal_ore" },
-        "3": { main: "iron_ore" },
-        "4": { main: "redstone_ore" },
-        "5": { main: "gold_ore" },
-        "6": { main: "lapis_ore" },
-        "7": { main: "diamond_ore" },
-        "8": { main: "emerald_ore" },
-        "9": { main: "oak_log_top" },
-        "10": { main: "cobblestone" },
-        "11": { main: "oak_planks" },
-        "12": { main: "dirt" },
-        "13": { main: "gravel" },
-        "14": { main: "crafting_table_top" },
-        "15": { main: "furnace_front" },
-        "16": { main: "andesite" },
-        "17": { main: "diorite" },
-        "18": { main: "granite" },
-        destroy_stage_0: { main: "destroy_stage_0" },
-        destroy_stage_1: { main: "destroy_stage_1" },
-        destroy_stage_2: { main: "destroy_stage_2" },
-        destroy_stage_3: { main: "destroy_stage_3" },
-        destroy_stage_4: { main: "destroy_stage_4" },
-        destroy_stage_5: { main: "destroy_stage_5" },
-        destroy_stage_6: { main: "destroy_stage_6" },
-        destroy_stage_7: { main: "destroy_stage_7" },
-        destroy_stage_8: { main: "destroy_stage_8" },
-        destroy_stage_9: { main: "destroy_stage_9" },
-    };
-
     // текстуры игроков
     const players = {
-        alex: { url: "alex" },
-        steve: { url: "steve" },
-    };
-
-    // текстуры предметов
-    const items = {
-        1: { name: "cobblestone" },
-        2: { name: "coal" },
-        3: { name: "iron_ingot" },
-        4: { name: "redstone" },
-        5: { name: "gold_ingot" },
-        6: { name: "lapis_lazuli" },
-        7: { name: "diamond" },
-        8: { name: "emerald" },
-        9: { name: "oak_log" },
-        10: { name: "stone" },
-        11: { name: "oak_plank" },
-        12: { name: "dirt" },
-        13: { name: "gravel" },
-        14: { name: "crafting_table" },
-        15: { name: "furnace" },
-        16: { name: "stick" },
-        17: { name: "raw_iron" },
-        18: { name: "raw_gold" },
-        19: { name: "wooden_pickaxe" },
-        20: { name: "wooden_axe" },
-        21: { name: "wooden_shovel" },
-        22: { name: "stone_pickaxe" },
-        23: { name: "stone_axe" },
-        24: { name: "stone_shovel" },
-        25: { name: "iron_pickaxe" },
-        26: { name: "iron_axe" },
-        27: { name: "iron_shovel" },
-        28: { name: "diamond_pickaxe" },
-        29: { name: "diamond_axe" },
-        30: { name: "diamond_shovel" },
-        31: { name: "andesite" },
-        32: { name: "diorite" },
-        33: { name: "granite" },
+        alex: { url: `${import.meta.env.VITE_APP_STORAGE_URL}/other/alex.png` },
+        steve: { url: `${import.meta.env.VITE_APP_STORAGE_URL}/other/steve.png` },
     };
 
     loadAssets();
 
     return {
-        blockAssets,
         playerAssets,
-        itemAssets,
+        objectAssets,
+
+        blocks,
         items,
         recipes,
+
         loadAssets,
         loadAsset,
         clearAssets,

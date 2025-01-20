@@ -1,5 +1,5 @@
 import { defineStore, storeToRefs } from "pinia";
-import { ref, toRaw } from "vue";
+import { ref, toRaw, watch } from "vue";
 
 import * as THREE from "three";
 
@@ -13,14 +13,40 @@ import { useAssetsStore } from "./assets";
 
 const logger = useLogger();
 
-interface BlockAssetSides {
-    main: THREE.Texture;
-    top?: THREE.Texture;
-    left?: THREE.Texture;
-    right?: THREE.Texture;
-    front?: THREE.Texture;
-    back?: THREE.Texture;
+interface BlockAssetsAll {
+    parent: "block/cube_all";
+    assets: {
+        all: THREE.Texture;
+    };
 }
+
+interface BlockAssetsSided {
+    parent: "block/cube";
+    assets: {
+        up: THREE.Texture;
+        north: THREE.Texture;
+        west: THREE.Texture;
+        east: THREE.Texture;
+        south: THREE.Texture;
+    };
+}
+
+interface BlockAssetsColumn {
+    parent: "block/cube_column";
+    assets: {
+        end: THREE.Texture;
+        side: THREE.Texture;
+    };
+}
+
+interface ItemsAssets {
+    parent: "item/handheld";
+    assets: {
+        layer0: THREE.Texture;
+    };
+}
+
+type BlockAssets = BlockAssetsAll | BlockAssetsSided | ItemsAssets | BlockAssetsColumn;
 
 export const useGameStore = defineStore("game", () => {
     const { send } = useSocketsStore();
@@ -30,16 +56,14 @@ export const useGameStore = defineStore("game", () => {
     const { messages } = storeToRefs(chat);
 
     const assets = useAssetsStore();
-    const { blockAssets, playerAssets, itemAssets } = storeToRefs(assets);
+    const { objectAssets, playerAssets, blocks, items } = storeToRefs(assets);
 
     const textures = ref<{
-        blocks: Record<string, BlockAssetSides>;
         players: Record<string, THREE.Texture>;
-        items: Record<string, THREE.Texture>;
+        objects: Record<string, BlockAssets>;
     }>({
-        blocks: {},
         players: {},
-        items: {},
+        objects: {},
     });
 
     const chunks = ref<{ [key: string]: Chunk }>({});
@@ -83,54 +107,67 @@ export const useGameStore = defineStore("game", () => {
     });
 
     eventBus.on("assetsLoaded", async () => {
-        Object.entries(blockAssets.value).forEach(([id, sidePaths]) => {
-            const sides: Partial<BlockAssetSides> = {};
-            Object.entries(sidePaths).forEach(([side, asset]) => {
-                const base64 = URL.createObjectURL(asset);
-
-                const texture = textureLoader.load(base64);
-                texture.magFilter = THREE.NearestFilter;
-                texture.minFilter = THREE.NearestFilter;
-
-                texture.name = `${id}_${side}`;
-
-                sides[side as keyof BlockAssetSides] = texture;
-            });
-            textures.value.blocks[id] = sides as BlockAssetSides;
+        Object.entries(objectAssets.value).forEach(([name, object]) => {
+            switch (object.parent) {
+                case "block/cube_all":
+                    textures.value.objects[name] = {
+                        parent: object.parent,
+                        assets: { all: getTextureFromBlob(object.assets.all, name) },
+                    };
+                    break;
+                case "block/cube":
+                    textures.value.objects[name] = {
+                        parent: object.parent,
+                        assets: {
+                            up: getTextureFromBlob(object.assets.up, `${name}_up`),
+                            north: getTextureFromBlob(object.assets.north, `${name}_north`),
+                            west: getTextureFromBlob(object.assets.west, `${name}_west`),
+                            east: getTextureFromBlob(object.assets.east, `${name}_east`),
+                            south: getTextureFromBlob(object.assets.south, `${name}_south`),
+                        },
+                    };
+                    break;
+                case "block/cube_column":
+                    textures.value.objects[name] = {
+                        parent: object.parent,
+                        assets: {
+                            end: getTextureFromBlob(object.assets.end, `${name}_end`),
+                            side: getTextureFromBlob(object.assets.side, `${name}_side`),
+                        },
+                    };
+                    break;
+                case "item/handheld":
+                    textures.value.objects[name] = {
+                        parent: "item/handheld",
+                        assets: { layer0: getTextureFromBlob(object.assets.layer0, name) },
+                    };
+                    break;
+            }
         });
 
         // добавление ломаной текстуры
-        const base64 = URL.createObjectURL(await assets.generateBrokenTexture());
-        const texture = textureLoader.load(base64);
-        texture.magFilter = THREE.NearestFilter;
-        texture.minFilter = THREE.NearestFilter;
-
-        texture.name = "broken_texture_main";
-        textures.value.blocks["broken_texture"] = { main: texture };
+        textures.value.objects["broken_texture"] = {
+            parent: "block/cube_all",
+            assets: { all: getTextureFromBlob(await assets.generateBrokenTexture(), "broken_texture") },
+        };
 
         Object.entries(playerAssets.value).forEach(([id, asset]) => {
-            const base64 = URL.createObjectURL(asset);
-            const texture = textureLoader.load(base64);
-            texture.magFilter = THREE.NearestFilter;
-            texture.minFilter = THREE.NearestFilter;
-
-            texture.name = id;
-            textures.value.players[id] = texture;
-        });
-
-        Object.entries(itemAssets.value).forEach(([id, asset]) => {
-            const base64 = URL.createObjectURL(asset);
-            const texture = textureLoader.load(base64);
-            texture.magFilter = THREE.NearestFilter;
-            texture.minFilter = THREE.NearestFilter;
-
-            texture.name = id;
-            textures.value.items[id] = texture;
+            textures.value.players[id] = getTextureFromBlob(asset, id);
         });
 
         texturesLoaded.value = true;
         eventBus.emit("texturesLoaded");
     });
+
+    function getTextureFromBlob(blob: Blob, name: string): THREE.Texture {
+        const base64 = URL.createObjectURL(blob);
+        const texture = textureLoader.load(base64);
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+
+        texture.name = name;
+        return texture;
+    }
 
     let playerMesh: THREE.Mesh | null = null;
     async function createPlayer() {
@@ -158,7 +195,10 @@ export const useGameStore = defineStore("game", () => {
     const cubes = new Array<{
         x: number;
         z: number;
-        block: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>;
+        block: THREE.Mesh<
+            THREE.BoxGeometry,
+            THREE.MeshStandardMaterial | THREE.MeshBasicMaterial | THREE.MeshStandardMaterial[]
+        >;
     }>();
 
     // создание чанка (5x5 блоков)
@@ -173,7 +213,7 @@ export const useGameStore = defineStore("game", () => {
 
                     const geometry = new THREE.BoxGeometry(1, 1, 1);
                     const material = new THREE.MeshStandardMaterial({
-                        map: textures.value.blocks["1"].main,
+                        map: (textures.value.objects["stone"] as BlockAssetsAll).assets.all,
                         transparent: true,
                     });
 
@@ -208,6 +248,13 @@ export const useGameStore = defineStore("game", () => {
     }
 
     let platformCreated = false;
+    let texturesUpdateNeeded = false;
+
+    watch(inGame, (value) => {
+        if (value) {
+            texturesUpdateNeeded = true;
+        }
+    });
 
     function updateTextures() {
         const player = currentPlayer.value;
@@ -229,7 +276,8 @@ export const useGameStore = defineStore("game", () => {
             const key = `${chunkX}:${chunkZ}`;
             const chunk = chunks.value[key];
 
-            let texture: THREE.Texture | undefined;
+            let materials: THREE.MeshStandardMaterial[] = [];
+
             if (chunk) {
                 const localBlockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
                 const localBlockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
@@ -238,10 +286,43 @@ export const useGameStore = defineStore("game", () => {
                 block.userData = { x, z };
 
                 if (coordinates !== 0) {
-                    if (coordinates in textures.value.blocks) {
-                        texture = textures.value.blocks[coordinates].main;
+                    let blockName: string | undefined;
+                    if (coordinates in blocks.value) {
+                        blockName = blocks.value[coordinates].name;
+                    }
+                    if (blockName && blockName in textures.value.objects) {
+                        const asset = textures.value.objects[blockName];
+                        switch (asset.parent) {
+                            case "block/cube_all":
+                                materials = [new THREE.MeshStandardMaterial({ map: asset.assets.all })];
+                                break;
+                            case "block/cube":
+                                materials = [
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.east }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.west }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.up }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.up }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.south }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.north }),
+                                ];
+                                break;
+                            case "block/cube_column":
+                                materials = [
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.side }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.side }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.end }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.end }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.side }),
+                                    new THREE.MeshStandardMaterial({ map: asset.assets.side }),
+                                ];
+                                break;
+                        }
                     } else {
-                        texture = textures.value.blocks["broken_texture"].main;
+                        materials = [
+                            new THREE.MeshStandardMaterial({
+                                map: (textures.value.objects["broken_texture"] as BlockAssetsAll).assets.all,
+                            }),
+                        ];
                     }
                     if (!platformCreated) {
                         platformCreated = true;
@@ -252,21 +333,65 @@ export const useGameStore = defineStore("game", () => {
 
                 if (broken.value && broken.value.block.x === x && broken.value.block.z === z) {
                     const n = getBreakingStage(broken.value.hardness, broken.value.progress);
+                    const destroyStage = textures.value.objects[`destroy_stage_${n}`] as BlockAssetsAll;
+                    if (!destroyStage?.assets?.all?.image) return;
 
-                    block.material.alphaMap = textures.value.blocks[`destroy_stage_${n}`].main;
+                    const brokenMaterial = block.material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[];
+
+                    if (Array.isArray(brokenMaterial)) {
+                        brokenMaterial.forEach((material) => {
+                            if (material.map?.image) {
+                                const canvas = document.createElement("canvas");
+                                const ctx = canvas.getContext("2d");
+                                if (!ctx) return;
+
+                                canvas.width = material.map.image.width;
+                                canvas.height = material.map.image.height;
+
+                                ctx.drawImage(material.map.image, 0, 0);
+                                ctx.drawImage(destroyStage.assets.all.image, 0, 0);
+
+                                if (material.map) material.map.dispose();
+                                const composite = new THREE.CanvasTexture(canvas);
+                                composite.magFilter = THREE.NearestFilter;
+                                composite.minFilter = THREE.NearestFilter;
+                                composite.needsUpdate = true;
+
+                                material.map = composite;
+                                material.needsUpdate = true;
+                            }
+                        });
+                    } else if (brokenMaterial.map?.image) {
+                        const canvas = document.createElement("canvas");
+                        const ctx = canvas.getContext("2d");
+                        if (!ctx) return;
+
+                        canvas.width = brokenMaterial.map.image.width;
+                        canvas.height = brokenMaterial.map.image.height;
+
+                        ctx.drawImage(brokenMaterial.map.image, 0, 0);
+                        ctx.drawImage(destroyStage.assets.all.image, 0, 0);
+
+                        if (brokenMaterial.map) brokenMaterial.map.dispose();
+                        const composite = new THREE.CanvasTexture(canvas);
+                        composite.magFilter = THREE.NearestFilter;
+                        composite.minFilter = THREE.NearestFilter;
+                        composite.needsUpdate = true;
+
+                        brokenMaterial.map = composite;
+                        brokenMaterial.needsUpdate = true;
+                    }
                 } else {
-                    block.material.alphaMap = null;
+                    //block.material.alphaMap = null;
                 }
             }
 
-            if (texture) {
+            if (materials.length > 0) {
                 block.visible = true;
-                block.material.map = texture;
+                block.material = materials.length == 1 ? materials[0] : materials;
             } else {
                 block.visible = false;
             }
-
-            block.material.needsUpdate = true;
         });
     }
 
@@ -308,17 +433,52 @@ export const useGameStore = defineStore("game", () => {
                 }
 
                 const geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
-                let texture: THREE.Texture;
-                if (drop.id in textures.value.items) {
-                    texture = textures.value.items[drop.id.toString()];
-                } else {
-                    texture = textures.value.blocks["broken_texture"].main;
-                }
-                const material = new THREE.MeshStandardMaterial({
-                    map: texture,
-                });
+                let materials: THREE.MeshStandardMaterial[] = [];
 
-                dropMesh = new THREE.Mesh(geometry, material);
+                let itemName: string | undefined;
+                if (drop.id in items.value) {
+                    itemName = items.value[drop.id].name;
+                }
+
+                if (itemName && itemName in textures.value.objects) {
+                    const asset = textures.value.objects[itemName];
+                    switch (asset.parent) {
+                        case "block/cube_all":
+                            materials = [new THREE.MeshStandardMaterial({ map: asset.assets.all })];
+                            break;
+                        case "block/cube":
+                            materials = [
+                                new THREE.MeshStandardMaterial({ map: asset.assets.east }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.west }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.up }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.up }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.south }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.north }),
+                            ];
+                            break;
+                        case "block/cube_column":
+                            materials = [
+                                new THREE.MeshStandardMaterial({ map: asset.assets.side }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.side }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.end }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.end }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.side }),
+                                new THREE.MeshStandardMaterial({ map: asset.assets.side }),
+                            ];
+                            break;
+                        case "item/handheld":
+                            materials = [new THREE.MeshStandardMaterial({ map: asset.assets.layer0 })];
+                            break;
+                    }
+                } else {
+                    materials = [
+                        new THREE.MeshStandardMaterial({
+                            map: (textures.value.objects["broken_texture"] as BlockAssetsAll).assets.all,
+                        }),
+                    ];
+                }
+
+                dropMesh = new THREE.Mesh(geometry, materials.length == 1 ? materials[0] : materials);
                 dropMesh.position.set(dropX, 0.8, dropZ);
                 dropMesh.name = dropKey;
 
@@ -458,6 +618,8 @@ export const useGameStore = defineStore("game", () => {
             const drops = data.result.drops;
 
             addChunks(serverChunks, drops);
+
+            texturesUpdateNeeded = true;
         } else if (data.type === "position") {
             const movedPlayer = data.result.player;
             if (currentPlayer.value && currentPlayer.value.nick === movedPlayer.nick) {
@@ -500,6 +662,8 @@ export const useGameStore = defineStore("game", () => {
 
                 const playerChunk = getPlayerChunk(movedPlayer);
                 removeOutOfViewChunks(playerChunk);
+
+                texturesUpdateNeeded = true;
             } else {
                 if (data.result.escape) {
                     deletePlayer(movedPlayer.nick);
@@ -525,6 +689,9 @@ export const useGameStore = defineStore("game", () => {
 
                 broken.value = null;
             }
+            texturesUpdateNeeded = true;
+
+            hand.value = data.result.hand;
         } else if (data.type === "broken") {
             const block = data.result.block;
 
@@ -578,6 +745,8 @@ export const useGameStore = defineStore("game", () => {
             const x = data.result.coordinates.x;
             const z = data.result.coordinates.z;
             await editBlock(x, z, data.result.block);
+
+            if (data.result.hand) hand.value = data.result.hand;
         } else if (data.type === "msg") {
             const chatMessage = {
                 text: data.result.text,
@@ -684,6 +853,8 @@ export const useGameStore = defineStore("game", () => {
         const blockZ = ((z % 5) + 5) % 5;
 
         chunk.chunk[blockX][blockZ] = block;
+
+        texturesUpdateNeeded = true;
     }
 
     // async function getBlock(block: number) {
@@ -977,11 +1148,13 @@ export const useGameStore = defineStore("game", () => {
             let targetItem: Slot | null;
             if (draggedItemIndex.value == -1) {
                 draggedItem = hand.value!;
+                broken.value = null;
             } else {
                 draggedItem = inventory.value[draggedItemIndex.value];
             }
             if (i == -1) {
                 targetItem = hand.value!;
+                broken.value = null;
             } else {
                 targetItem = inventory.value[i];
             }
@@ -1085,7 +1258,10 @@ export const useGameStore = defineStore("game", () => {
         const renderStartedAt = Date.now();
 
         updateDrops();
-        updateTextures();
+        if (texturesUpdateNeeded) {
+            updateTextures();
+            texturesUpdateNeeded = false;
+        }
         updatePlayers();
         updateFps();
 
