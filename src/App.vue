@@ -84,7 +84,7 @@ async function verifyWithServer(initData: string) {
 
         return data.response?.token;
     } catch (error: any) {
-        app.showFatalError(error);
+        throw new Error(error.message || 'Authentication failed');
     }
 }
 
