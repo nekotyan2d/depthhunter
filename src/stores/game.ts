@@ -98,7 +98,9 @@ export const useGameStore = defineStore("game", () => {
     const texturesLoaded = ref(false);
 
     const inGame = ref(false);
+
     let canMoveAfter = 0;
+    let serverTime = 0;
 
     const settings = getSettings();
     const showChunkBorders = ref(settings.showChunkBorders);
@@ -590,7 +592,8 @@ export const useGameStore = defineStore("game", () => {
             inventory.value = data.result.inventory;
             hand.value = data.result.hand;
 
-            canMoveAfter = Date.now() + 200;
+            serverTime = Date.now();
+            canMoveAfter = serverTime + 200;
 
             const players = data.result.players;
             for (const key in players) {
@@ -612,7 +615,9 @@ export const useGameStore = defineStore("game", () => {
 
                 currentPlayer.value = movedPlayer;
 
-                canMoveAfter = Date.now() + 250;
+                serverTime = data.result.current_time;
+                const timeOffset = serverTime - Date.now() + 1;
+                canMoveAfter = data.result.available_after - timeOffset;
 
                 const players = data.result.players;
                 for (const key in players) {
@@ -1070,18 +1075,11 @@ export const useGameStore = defineStore("game", () => {
 
         return chunks.value[`${chunkX}:${chunkZ}`].chunk[localBlockX][localBlockZ];
     }
-
-    document.addEventListener("keydown", (event) => {
+    let moveDirection: Direction | undefined;
+    document.addEventListener("keydown", async (event) => {
         if (!inGame.value || showInventory.value) return;
 
         if (!currentPlayer.value) return;
-
-        const currentTime = Date.now();
-        if (currentTime < canMoveAfter) {
-            return;
-        }
-
-        canMoveAfter = currentTime + 500;
 
         let side: Direction | undefined;
         switch (event.code) {
@@ -1101,10 +1099,7 @@ export const useGameStore = defineStore("game", () => {
                 showInventory.value = !showInventory.value;
                 break;
         }
-        if (side && getBlockBySide(side) == 0) {
-            const data = { type: "move", data: { side } };
-            send(data);
-        }
+        moveDirection = side;
     });
 
     let lastFrameTime = performance.now();
@@ -1256,6 +1251,17 @@ export const useGameStore = defineStore("game", () => {
         if (!inGame.value) return;
 
         const renderStartedAt = Date.now();
+
+        if (canMoveAfter > Date.now()) {
+            moveDirection = undefined;
+        } else {
+            if (moveDirection && getBlockBySide(moveDirection) == 0) {
+                const data = { type: "move", data: { side: moveDirection } };
+                send(data);
+                moveDirection = undefined;
+                canMoveAfter = Date.now() + 1000;
+            }
+        }
 
         updateDrops();
         if (texturesUpdateNeeded) {

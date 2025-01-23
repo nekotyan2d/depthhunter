@@ -92,6 +92,7 @@ declare global {
             escape: boolean;
             drops: { x: number; z: number; items: Drop[] }[];
             available_after: number;
+            current_time: number;
         };
     }
     interface ServerMessageBreak {
@@ -103,6 +104,8 @@ declare global {
             broken: boolean;
             dropped: number | null; // TODO здесь бы задать union идов предметов
             hand: Slot | null;
+            available_after: number;
+            current_time: number;
         };
     }
     interface ServerMessageBroken {
