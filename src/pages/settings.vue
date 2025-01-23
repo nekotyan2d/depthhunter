@@ -48,8 +48,8 @@ watch([showChunkBorders, modifyScaleSize], () => {
 
 const extraSettingsQuiz = ref(0);
 
-function clearCache() {
-    clearAssets();
+async function clearCache() {
+    await clearAssets();
     window.location.reload();
 }
 

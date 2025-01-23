@@ -9,7 +9,7 @@ const logger = useLogger();
 
 export const useAssetsStore = defineStore("assets", () => {
     const app = useAppStore();
-    
+
     const request = indexedDB.open("assetsCacheDB", 1);
     let db: IDBDatabase;
 
@@ -46,7 +46,6 @@ export const useAssetsStore = defineStore("assets", () => {
                 document.fonts.add(font);
                 eventBus.emit("fontLoaded");
             });
-
             await waitDBInitialization;
 
             const response = await ofetch<AssetsResponse>(`${app.backendProtocol}//${app.backendHost}/api/assets`);
@@ -60,6 +59,8 @@ export const useAssetsStore = defineStore("assets", () => {
             items.value = assets.items;
             craftingRecipes.value = assets.recipes;
             smeltingRecipes.value = assets.smelting;
+
+            await fixCacheKeys(blockTextures, itemTextures);
 
             const promises: Promise<void>[] = [];
 
@@ -135,10 +136,14 @@ export const useAssetsStore = defineStore("assets", () => {
                 ctx.imageSmoothingEnabled = false;
 
                 const loadImage = (blob: Blob): Promise<HTMLImageElement> => {
-                    return new Promise((resolve) => {
+                    return new Promise<HTMLImageElement>((resolve) => {
                         const img = document.createElement("img");
                         img.src = URL.createObjectURL(blob);
                         img.onload = () => resolve(img);
+                        img.onerror = async () => {
+                            const brokenTexture = await generateBrokenTexture();
+                            img.src = URL.createObjectURL(brokenTexture);
+                        };
                     });
                 };
 
@@ -207,10 +212,9 @@ export const useAssetsStore = defineStore("assets", () => {
                         await generate3dModel(name, asset);
                     }
                 };
-                const generatePromises: Promise<void>[] = [];
-                Object.entries(objectAssets.value).forEach(async ([name, asset]) => {
-                    generatePromises.push(checkAsset(name, asset));
-                });
+                const generatePromises = Object.entries(objectAssets.value).map(([name, asset]) =>
+                    checkAsset(name, asset)
+                );
                 await Promise.all(generatePromises);
             }
 
@@ -239,6 +243,42 @@ export const useAssetsStore = defineStore("assets", () => {
         } catch (error) {
             console.error(error);
             logger.error("Ошибка загрузки ассетов");
+        }
+    }
+
+    async function fixCacheKeys(
+        blockTextures: Record<number, BlockTextures>,
+        itemTextures: Record<number, BlockTextures>
+    ) {
+        const totalTextures = Object.keys(blockTextures).length + Object.keys(itemTextures).length;
+
+        const transaction = db.transaction("assets", "readwrite");
+        const totalCacheRequest = transaction.objectStore("assets").count();
+
+        const totalCache = await new Promise<number>(
+            (resolve) => (totalCacheRequest.onsuccess = () => resolve(totalCacheRequest.result))
+        );
+
+        if (totalTextures != totalCache) {
+            return clearAssets();
+        }
+
+        const keys = [
+            ...Object.keys(blockTextures).map((id) => blocks.value[+id].name),
+            ...Object.keys(itemTextures).map((id) => items.value[+id].name),
+        ];
+
+        const cacheKeys = await new Promise<string[]>((resolve) => {
+            const transaction = db.transaction("assets", "readonly");
+            const request = transaction.objectStore("assets").getAllKeys();
+            request.onsuccess = () => resolve(request.result as string[]);
+        });
+
+        const hasInvalidKeys =
+            keys.some((key) => !cacheKeys.includes(key)) || cacheKeys.some((key) => !keys.includes(key));
+
+        if (hasInvalidKeys) {
+            return clearAssets();
         }
     }
 
@@ -299,9 +339,17 @@ export const useAssetsStore = defineStore("assets", () => {
         }
     }
 
-    function clearAssets() {
+    async function clearAssets() {
         const transaction = db.transaction("assets", "readwrite");
-        transaction.objectStore("assets").clear();
+        const request = transaction.objectStore("assets").clear();
+
+        return new Promise<void>((resolve, reject) => {
+            request.onsuccess = () => {
+                transaction.oncomplete = () => resolve();
+            };
+
+            request.onerror = () => reject(request.error);
+        });
     }
 
     function generateBrokenTexture(): Promise<Blob> {
