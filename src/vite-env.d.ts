@@ -20,6 +20,12 @@ interface Window {
                 isVisible: boolean;
             };
 
+            setHeaderColor: (color: string) => void;
+            setBackgroundColor: (color: string) => void;
+            setBottomBarColor: (color: string) => void;
+
+            disableVerticalSwipes: () => void;
+
             onEvent: (event: string, callback: (data: any) => void) => void;
         };
     };

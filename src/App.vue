@@ -46,6 +46,12 @@ async function initTelegramApp() {
     try {
         const tg = window.Telegram.WebApp;
         tg.SettingsButton.isVisible = true;
+
+        tg.disableVerticalSwipes();
+        tg.setHeaderColor("#212121");
+        tg.setBackgroundColor("#212121");
+        tg.setBottomBarColor("#212121");
+        
         tg.onEvent("settingsButtonClicked", () => {
             router.push('/settings');
         });
