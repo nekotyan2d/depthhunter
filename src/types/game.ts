@@ -19,8 +19,10 @@ declare global {
     interface Slot {
         id: number;
         count: number;
-        damage?: number;
-        initialDurability?: number;
+        tool?: {
+            initialDurability: number;
+            damage: number;
+        };
     }
 
     interface Drop extends Slot {
@@ -32,10 +34,10 @@ declare global {
         id: number;
         name: string;
         drop: number; // id предмета, который выпадает при разрушении
-        properties: {
+        properties?: {
             hardness: number;
-            harvestTool: "pickaxe" | "axe" | "shovel";
-            minLevel: number;
+            harvestTool?: "pickaxe" | "axe" | "shovel";
+            minLevel?: number;
         };
     }
 
