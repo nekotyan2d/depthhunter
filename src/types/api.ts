@@ -8,6 +8,7 @@ interface Assets {
         blocks: Record<number, BlockParams>;
         items: Record<number, Item>;
         recipes: Record<number, Recipe>;
+        smelting: Record<number, SmeltingRecipe>;
     };
 }
 

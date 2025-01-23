@@ -75,6 +75,8 @@ export const useGameStore = defineStore("game", () => {
     const showInventory = ref(false);
     const usingCraftingTable = ref(false);
     const craftingTableSide = ref<Direction | null>(null);
+    const usingFurnace = ref(false);
+    const furnaceSide = ref<Direction | null>(null);
 
     const scene = ref<THREE.Scene | null>(null);
     const camera = ref<THREE.PerspectiveCamera | null>(null);
@@ -911,6 +913,13 @@ export const useGameStore = defineStore("game", () => {
                     return;
                 }
 
+                if (block == 15) {
+                    usingFurnace.value = true;
+                    openInventory(true);
+                    furnaceSide.value = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
+                    return;
+                }
+
                 const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
                 send({ type: "put", data: { side } });
             } else {
@@ -1187,6 +1196,7 @@ export const useGameStore = defineStore("game", () => {
         draggedItemIndex.value = null;
         if (!state) {
             usingCraftingTable.value = false;
+            usingFurnace.value = false;
         }
     }
 
@@ -1194,6 +1204,13 @@ export const useGameStore = defineStore("game", () => {
         send({
             type: "crafting",
             data: { item, ...(usingCraftingTable.value && { side: side || craftingTableSide.value }) },
+        });
+    }
+
+    function smeltItem(item: number, side?: Direction) {
+        send({
+            type: "smelting",
+            data: { item, side: side || furnaceSide.value },
         });
     }
 
@@ -1275,10 +1292,12 @@ export const useGameStore = defineStore("game", () => {
         showInventory,
         draggedItemIndex,
         usingCraftingTable,
+        usingFurnace,
         openInventory,
         moveItem,
         throwItem,
         craftItem,
+        smeltItem,
 
         // threejs
         scene,

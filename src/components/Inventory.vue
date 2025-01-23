@@ -16,7 +16,8 @@
                     @click="game.moveItem(i)"/>
                 
             </div>
-            <Crafting v-if="inventory.length > 0"/>
+            <Smelting v-if="usingFurnace"/>
+            <Crafting v-else-if="inventory.length > 0"/>
         </div>
     </div>
 </template>
@@ -26,10 +27,11 @@ import { useGameStore } from '../stores/game';
 import Crafting from './Crafting.vue';
 import Slot from './Slot.vue';
 import { Icon } from "@iconify/vue";
+import Smelting from './Smelting.vue';
 
 const game = useGameStore();
 
-const { inventory, draggedItemIndex } = storeToRefs(game);
+const { inventory, draggedItemIndex, usingFurnace } = storeToRefs(game);
 
 function onBackgroundClick(){
     if(draggedItemIndex.value != null){

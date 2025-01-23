@@ -1,0 +1,71 @@
+.crafting, .smelting {
+    width: 100%;
+
+    .title{
+        font-size: 1.1rem;
+    }
+
+    .crafting-table, .furnace {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        height: fit-content;
+        margin-bottom: 8px;
+
+        img {
+            width: 40px;
+            height: 40px;
+        }
+
+        .ingredients {
+            display: flex;
+            flex-wrap: wrap;
+            flex: 1;
+            min-height: 40px;
+            background-color: var(--color-bg-secondary);
+        }
+
+        .ingredient{
+            height: 40px;
+            width: 40px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            img {
+                width: 80%;
+                height: 80%;
+            }
+
+            .count {
+                position: absolute;
+                right: 0;
+                bottom: 0;
+            }
+        }
+
+        .arrow {
+            color: var(--color-hint);
+        }
+
+        .result {
+            height: 40px;
+            width: 40px;
+            background-color: var(--color-bg-secondary);
+        }
+    }
+
+    .recipes {
+        display: grid;
+        grid-template-columns: repeat(9, 1fr);
+        grid-template-rows: repeat(auto, 1fr);
+        width: 100%;
+    }
+
+    .recipe, .ingredient {
+        &.disabled :deep(.item){
+            filter: brightness(0.5);
+        }
+    }
+}

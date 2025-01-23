@@ -32,7 +32,8 @@ export const useAssetsStore = defineStore("assets", () => {
     const playerAssets = ref<Record<string, Blob>>({});
     const objectAssets = ref<Record<string, BlockAssets>>({});
 
-    const recipes = ref<Record<string, Recipe>>({});
+    const craftingRecipes = ref<Record<string, Recipe>>({});
+    const smeltingRecipes = ref<Record<number, SmeltingRecipe>>({});
     const blocks = ref<Record<number, BlockParams>>({});
     const items = ref<Record<number, Item>>({});
 
@@ -57,7 +58,8 @@ export const useAssetsStore = defineStore("assets", () => {
 
             blocks.value = assets.blocks;
             items.value = assets.items;
-            recipes.value = assets.recipes;
+            craftingRecipes.value = assets.recipes;
+            smeltingRecipes.value = assets.smelting;
 
             const promises: Promise<void>[] = [];
 
@@ -344,7 +346,8 @@ export const useAssetsStore = defineStore("assets", () => {
 
         blocks,
         items,
-        recipes,
+        craftingRecipes,
+        smeltingRecipes,
 
         loadAssets,
         loadAsset,

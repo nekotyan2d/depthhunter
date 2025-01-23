@@ -64,6 +64,12 @@ declare global {
         result: Slot;
     }
 
+    interface SmeltingRecipe {
+        fuelCount: number; // количество угля
+        input: number; // id переплавляемого предмета
+        output: number; // id результата
+    }
+
     interface ServerMessageStart {
         type: "start";
         result: {
