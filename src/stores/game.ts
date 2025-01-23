@@ -331,68 +331,51 @@ export const useGameStore = defineStore("game", () => {
                     }
                 }
 
+                if (materials.length > 0) {
+                    block.visible = true;
+                    block.material = materials.length == 1 ? materials[0] : materials;
+                } else {
+                    block.visible = false;
+                }
+
                 if (broken.value && broken.value.block.x === x && broken.value.block.z === z) {
                     const n = getBreakingStage(broken.value.hardness, broken.value.progress);
                     const destroyStage = textures.value.objects[`destroy_stage_${n}`] as BlockAssetsAll;
                     if (!destroyStage?.assets?.all?.image) return;
 
-                    const brokenMaterial = block.material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[];
-
-                    if (Array.isArray(brokenMaterial)) {
-                        brokenMaterial.forEach((material) => {
+                    if (materials.length > 1) {
+                        materials.forEach((material) => {
                             if (material.map?.image) {
-                                const canvas = document.createElement("canvas");
-                                const ctx = canvas.getContext("2d");
-                                if (!ctx) return;
-
-                                canvas.width = material.map.image.width;
-                                canvas.height = material.map.image.height;
-
-                                ctx.drawImage(material.map.image, 0, 0);
-                                ctx.drawImage(destroyStage.assets.all.image, 0, 0);
-
-                                if (material.map) material.map.dispose();
-                                const composite = new THREE.CanvasTexture(canvas);
-                                composite.magFilter = THREE.NearestFilter;
-                                composite.minFilter = THREE.NearestFilter;
-                                composite.needsUpdate = true;
-
-                                material.map = composite;
-                                material.needsUpdate = true;
+                                breakTexture(material, destroyStage);
                             }
                         });
-                    } else if (brokenMaterial.map?.image) {
-                        const canvas = document.createElement("canvas");
-                        const ctx = canvas.getContext("2d");
-                        if (!ctx) return;
-
-                        canvas.width = brokenMaterial.map.image.width;
-                        canvas.height = brokenMaterial.map.image.height;
-
-                        ctx.drawImage(brokenMaterial.map.image, 0, 0);
-                        ctx.drawImage(destroyStage.assets.all.image, 0, 0);
-
-                        if (brokenMaterial.map) brokenMaterial.map.dispose();
-                        const composite = new THREE.CanvasTexture(canvas);
-                        composite.magFilter = THREE.NearestFilter;
-                        composite.minFilter = THREE.NearestFilter;
-                        composite.needsUpdate = true;
-
-                        brokenMaterial.map = composite;
-                        brokenMaterial.needsUpdate = true;
+                    } else {
+                        breakTexture(materials[0], destroyStage);
                     }
-                } else {
-                    //block.material.alphaMap = null;
                 }
             }
-
-            if (materials.length > 0) {
-                block.visible = true;
-                block.material = materials.length == 1 ? materials[0] : materials;
-            } else {
-                block.visible = false;
-            }
         });
+    }
+
+    function breakTexture(material: THREE.MeshStandardMaterial, destroyStage: BlockAssetsAll) {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        canvas.width = material.map!.image.width;
+        canvas.height = material.map!.image.height;
+
+        ctx.drawImage(material.map!.image, 0, 0);
+        ctx.drawImage(destroyStage.assets.all.image, 0, 0);
+
+        if (material.map) material.map.dispose();
+        const composite = new THREE.CanvasTexture(canvas);
+        composite.magFilter = THREE.NearestFilter;
+        composite.minFilter = THREE.NearestFilter;
+        composite.needsUpdate = true;
+
+        material.map = composite;
+        material.needsUpdate = true;
     }
 
     const dropMeshes: { [key: string]: THREE.Mesh } = {};
