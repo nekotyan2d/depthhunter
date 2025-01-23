@@ -23,14 +23,11 @@ import Button from '../components/Button.vue';
 const chat = useChatStore();
 const sockets = useSocketsStore();
 
-const { messages } = storeToRefs(chat);
+const { messages, newMessage, myMessages, myMessagesIndex } = storeToRefs(chat);
 
-const newMessage = ref("");
 const canSendMessage = ref(false);
 
 const messageElements = ref<HTMLDivElement[]>([]);
-const myMessages = ref<string[]>([]);
-const myMessagesIndex = ref(-1);
 
 function changeMessageIndex(direction: -1 | 1){
     if(myMessages.value.length == 0) return;
@@ -103,6 +100,7 @@ function sendMessage() {
         myMessages.value.splice(myMessages.value.length - 1, 1);
     }
     
+    myMessagesIndex.value = -1;
     newMessage.value = "";
 }
 </script>
