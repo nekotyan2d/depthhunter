@@ -5,14 +5,14 @@
         </div>
         <div class="input-box">
             <Input v-model="newMessage" @keydown.enter="sendMessage" @keydown.up.prevent="changeMessageIndex(1)" @keydown.down.prevent="changeMessageIndex(-1)" type="text" placeholder="Введите сообщение" />
-            <Button class="send" :disabled="!canSendMessage">
-                <Icon icon="pixelarticons:arrow-right" @click="sendMessage" height="30" width="30"/>
+            <Button class="send" :disabled="!canSendMessage" @click="sendMessage">
+                <Icon icon="pixelarticons:arrow-right" height="30" width="30"/>
             </Button>
         </div>
     </div>
 </template>
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useChatStore } from '../stores/chat';
 import { storeToRefs } from 'pinia';
 import { Icon } from '@iconify/vue';
@@ -23,7 +23,7 @@ import Button from '../components/Button.vue';
 const chat = useChatStore();
 const sockets = useSocketsStore();
 
-const { messages, newMessage, myMessages, myMessagesIndex } = storeToRefs(chat);
+const { messages, newMessage, myMessages, myMessagesIndex, readMessages } = storeToRefs(chat);
 
 const canSendMessage = ref(false);
 
@@ -75,7 +75,9 @@ function formatMessage(message: string){
     return formattedText;
 }
 
-watch(messages, () => {
+watch(() => messages.value.length, () => {
+    readMessages.value = messages.value.length;
+    
     if (messageElements.value.length == 0) return;
     messageElements.value[messageElements.value.length - 1].scrollIntoView();
 })
@@ -91,7 +93,7 @@ setInterval(() => {
 
 let lastMessageSent = 0;
 function sendMessage() {
-    if (!newMessage.value || Date.now() - lastMessageSent < 1000) return;
+    if (!canSendMessage.value) return;
     sockets.send({ type: "msg", data: { text: newMessage.value } })
     lastMessageSent = Date.now();
 
@@ -103,6 +105,10 @@ function sendMessage() {
     myMessagesIndex.value = -1;
     newMessage.value = "";
 }
+
+onMounted(() => {
+    readMessages.value = messages.value.length;
+})
 </script>
 <style lang="scss" scoped>
 .chat {

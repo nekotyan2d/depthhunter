@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 export const useChatStore = defineStore("chat", () => {
     const messages = ref<ChatMessage[]>([]);
@@ -9,10 +9,18 @@ export const useChatStore = defineStore("chat", () => {
     const myMessages = ref<string[]>([]);
     const myMessagesIndex = ref(-1);
 
+    const readMessages = ref(0);
+
+    const unreadMessages = computed(() => {
+        return messages.value.length - readMessages.value;
+    });
+
     return {
         messages,
         newMessage,
         myMessages,
         myMessagesIndex,
+        readMessages,
+        unreadMessages,
     };
 });
