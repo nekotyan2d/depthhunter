@@ -314,7 +314,7 @@ export const useAssetsStore = defineStore("assets", () => {
     function getAssetPath(url: string) {
         try {
             const urlObj = new URL(url);
-            return urlObj.pathname;
+            return urlObj.pathname.replace(".png", "");
         } catch (error) {
             return url;
         }
