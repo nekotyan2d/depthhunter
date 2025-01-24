@@ -493,7 +493,8 @@ export const useGameStore = defineStore("game", () => {
             if (drop.geometry instanceof THREE.BoxGeometry) {
                 drop.rotateY(0.01);
             } else {
-                drop.rotateY(0.01);
+                drop.rotation.z = 135;
+                drop.rotation.x = 90;
                 // TODO изменить механику вращения предмета
             }
         });
