@@ -2,6 +2,7 @@ import { defineStore, storeToRefs } from "pinia";
 import { ref, toRaw, watch } from "vue";
 
 import * as THREE from "three";
+import { createItemGeometry } from "../utils/render";
 
 import { useLogger } from "../composables/useLogger";
 import { useSocketsStore } from "./sockets";
@@ -65,6 +66,7 @@ export const useGameStore = defineStore("game", () => {
         players: {},
         objects: {},
     });
+    const itemGeometries = ref<Record<string, THREE.BufferGeometry>>({});
 
     const chunks = ref<{ [key: string]: Chunk }>({});
     const players = ref<{ [key: string]: Player }>({});
@@ -149,6 +151,8 @@ export const useGameStore = defineStore("game", () => {
             }
         });
 
+        await createItemGeometries();
+
         // добавление ломаной текстуры
         textures.value.objects["broken_texture"] = {
             parent: "block/cube_all",
@@ -171,6 +175,16 @@ export const useGameStore = defineStore("game", () => {
 
         texture.name = name;
         return texture;
+    }
+
+    async function createItemGeometries() {
+        for (const key in objectAssets.value) {
+            const object = objectAssets.value[key];
+            if (object.parent == "item/handheld") {
+                const geometry = await createItemGeometry(object.assets.layer0);
+                itemGeometries.value[key] = geometry;
+            }
+        }
     }
 
     let playerMesh: THREE.Mesh | null = null;
@@ -419,7 +433,7 @@ export const useGameStore = defineStore("game", () => {
                     return;
                 }
 
-                const geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+                let geometry: THREE.BufferGeometry | THREE.BoxGeometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
                 let materials: THREE.MeshStandardMaterial[] = [];
 
                 let itemName: string | undefined;
@@ -455,6 +469,7 @@ export const useGameStore = defineStore("game", () => {
                             break;
                         case "item/handheld":
                             materials = [new THREE.MeshStandardMaterial({ map: asset.assets.layer0 })];
+                            geometry = itemGeometries.value[itemName];
                             break;
                     }
                 } else {
@@ -475,7 +490,12 @@ export const useGameStore = defineStore("game", () => {
         });
 
         Object.values(dropMeshes).forEach((drop) => {
-            drop.rotateY(0.01);
+            if (drop.geometry instanceof THREE.BoxGeometry) {
+                drop.rotateY(0.01);
+            } else {
+                drop.rotateY(0.01);
+                // TODO изменить механику вращения предмета
+            }
         });
     }
 
