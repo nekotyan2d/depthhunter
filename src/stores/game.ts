@@ -910,6 +910,7 @@ export const useGameStore = defineStore("game", () => {
                 if (isNeighbor) {
                     const side = getBlockSideFromPlayer(playerX, playerZ, x, z);
                     send({ type: "take", data: { side } });
+                    logger.info(`Поднял дроп с координатами ${x}:${z} (${side})`);
                 }
                 return;
             }
@@ -947,28 +948,13 @@ export const useGameStore = defineStore("game", () => {
                 }
 
                 const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
-                send({ type: "put", data: { side } });
-            } else {
-                const side = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
-
-                if (side != null && getBlockBySide(side) == 0) {
-                    send({ type: "move", data: { side } });
+                if (side && hand.value && "place" in items.value[hand.value.id]) {
+                    send({ type: "put", data: { side } });
+                    logger.info(`Разместил блок с координатами ${blockX}:${blockZ} (${side})`);
                 }
+            } else {
+                moveDirection = getBlockSideFromPlayer(playerX, playerZ, blockX, blockZ);
             }
-
-            // const intersectedObject = solidBlock.object;
-            // const { x, z } = intersectedObject.userData;
-            // if (x == undefined || z == undefined) return;
-
-            // if (!currentPlayer.value) return;
-
-            // const blockX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-            // const blockZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-
-            // const chunkX = Math.floor(x / CHUNK_SIZE);
-            // const chunkZ = Math.floor(z / CHUNK_SIZE);
-
-            // TODO реализовать размещение блока
         }
     }
 
@@ -1008,6 +994,7 @@ export const useGameStore = defineStore("game", () => {
             if (isNeighbor) {
                 const side = getBlockSideFromPlayer(playerX, playerZ, x, z);
                 send({ type: "break", data: { side } });
+                logger.info(`Ломаю блок с координатами ${x}:${z} (${side})`);
             }
         }
     }
@@ -1096,7 +1083,7 @@ export const useGameStore = defineStore("game", () => {
 
         return chunks.value[`${chunkX}:${chunkZ}`].chunk[localBlockX][localBlockZ];
     }
-    let moveDirection: Direction | undefined;
+    let moveDirection: Direction | null = null;
     document.addEventListener("keydown", async (event) => {
         if (!inGame.value || !currentPlayer.value) return;
 
@@ -1109,7 +1096,7 @@ export const useGameStore = defineStore("game", () => {
                 break;
         }
 
-        let side: Direction | undefined;
+        let side: Direction | null = null;
         switch (event.code) {
             case "KeyW":
                 side = "up";
@@ -1189,6 +1176,7 @@ export const useGameStore = defineStore("game", () => {
                     },
                 });
             }
+            logger.info(`Переместил предмет из слота ${draggedItemIndex.value} в слот ${i}`);
             draggedItemIndex.value = null;
             return;
         }
@@ -1208,6 +1196,7 @@ export const useGameStore = defineStore("game", () => {
         if (draggedItem == null) return;
 
         send({ type: "away", data: { side, slot: draggedItemIndex.value, count: draggedItem.count } });
+        logger.info(`Выбросил предмет из слота ${draggedItemIndex.value} в ${side}`);
         draggedItemIndex.value = null;
     }
 
@@ -1225,6 +1214,7 @@ export const useGameStore = defineStore("game", () => {
             type: "crafting",
             data: { item, ...(usingCraftingTable.value && { side: side || craftingTableSide.value }) },
         });
+        logger.info(`Скрафтил предмет ${items.value[item].name} (${item})`);
     }
 
     function smeltItem(item: number, side?: Direction) {
@@ -1232,6 +1222,7 @@ export const useGameStore = defineStore("game", () => {
             type: "smelting",
             data: { item, side: side || furnaceSide.value },
         });
+        logger.info(`Использовал печь для получения предмета ${items.value[item].name} (${item})`);
     }
 
     //TODO добавить отрисовку границ чанков
@@ -1278,12 +1269,12 @@ export const useGameStore = defineStore("game", () => {
         const renderStartedAt = Date.now();
 
         if (canMoveAfter > Date.now()) {
-            moveDirection = undefined;
+            moveDirection = null;
         } else {
             if (moveDirection && getBlockBySide(moveDirection) == 0) {
-                const data = { type: "move", data: { side: moveDirection } };
-                send(data);
-                moveDirection = undefined;
+                send({ type: "move", data: { side: moveDirection } });
+                logger.info(`Переместился на ${moveDirection}`);
+                moveDirection = null;
                 canMoveAfter = Date.now() + 1000;
             }
         }
