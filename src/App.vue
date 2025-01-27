@@ -7,7 +7,7 @@
             <div class="loader">
                 <Image src="img/loading.webp" alt="Загрузка" width="100" height="100" />
             </div>
-            <div v-if="showLoadingText" class="text">Загрузка...</div>
+            <div v-if="showLoadingText" class="text">{{ stageLoadingTexts[currentStage] }}</div>
         </div>
         <main v-show="!app.isLoading">
             <RouterView />
@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { RouterView, useRouter, useRoute } from 'vue-router';
 import BottomBar from './components/BottomBar.vue';
 
@@ -94,19 +94,34 @@ async function verifyWithServer(initData: string) {
     }
 }
 
-const passedStages = ref(0);
-
-eventBus.on("assetsLoaded", () => {
-    passedStages.value++;
+const passedStages = ref({
+    connection: false,
+    assets: false,
+    generationFinished: false,
+    gameStarted: false,
 });
 
-eventBus.on("gameStarted", () => {
-    passedStages.value++;
-});
+const currentStage = computed(() => {
+    const stages = passedStages.value;
+    if(!stages.connection) return 0;
+    if(!stages.assets) return 1;
+    if(!stages.generationFinished) return 2;
+    if(!stages.gameStarted) return 3;
+    return 4;
+})
 
-eventBus.on("platformCreated", () => {
-    passedStages.value++;
-});
+const stageLoadingTexts = [
+    "Подключение к серверу...",
+    "Загрузка ресурсов...",
+    "Генерация мира...",
+    "Запуск...",
+    "Почти готово"
+];
+
+eventBus.on("serverConnected", () => passedStages.value.connection = true);
+eventBus.on("assetsLoaded", () => passedStages.value.assets = true);
+eventBus.on("platformCreated", () => passedStages.value.generationFinished = true);
+eventBus.on("gameStarted", () => passedStages.value.gameStarted = true);
 
 eventBus.on("accountCreated", () => {
     initTelegramApp();
@@ -118,11 +133,17 @@ eventBus.on("fontLoaded", () => {
 })
 
 watch(() => passedStages.value, (value) => {
-    // скрываем экран загрузки при 3-х пройденных стадиях на странице игры и при одной на других страницах
-    if ((value === 3 && route.path === "/") || (value === 1 && route.path !== "/")) {
-        app.isLoading = false;
+    // скрываем экран загрузки при всех пройденных стадиях на странице игры и при двух на других страницах
+    if(route.path === "/"){
+        if (value.connection && value.assets && value.generationFinished && value.gameStarted) {
+            app.isLoading = false;
+        }
+    } else {
+        if (value.connection && value.assets) {
+            app.isLoading = false;
+        }
     }
-});
+}, { deep: true });
 
 if (route.path === "/") {
     inGame.value = true;

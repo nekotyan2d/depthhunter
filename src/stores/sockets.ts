@@ -18,6 +18,7 @@ export const useSocketsStore = defineStore("sockets", () => {
 
         connection.value.onopen = () => {
             logger.info("Подключено");
+            eventBus.emit("serverConnected");
         };
         connection.value.onmessage = async (event) => {
             logger.info(event.data);
