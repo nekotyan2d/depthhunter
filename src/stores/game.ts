@@ -1098,9 +1098,16 @@ export const useGameStore = defineStore("game", () => {
     }
     let moveDirection: Direction | undefined;
     document.addEventListener("keydown", async (event) => {
-        if (!inGame.value || showInventory.value) return;
+        if (!inGame.value || !currentPlayer.value) return;
 
-        if (!currentPlayer.value) return;
+        switch (event.code) {
+            case "KeyE":
+                openInventory(!showInventory.value);
+                break;
+            case "Escape":
+                openInventory(false);
+                break;
+        }
 
         let side: Direction | undefined;
         switch (event.code) {
@@ -1115,9 +1122,6 @@ export const useGameStore = defineStore("game", () => {
                 break;
             case "KeyD":
                 side = "right";
-                break;
-            case "KeyE":
-                showInventory.value = !showInventory.value;
                 break;
         }
         moveDirection = side;
