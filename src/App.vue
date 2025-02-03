@@ -11,7 +11,7 @@
         </div>
         <main v-show="!app.isLoading">
             <RouterView />
-            <BottomBar />
+            <BottomBar v-if="!['/registration', '/join-channel'].includes(route.path)"/>
         </main>
     </template>
 </template>
@@ -79,6 +79,10 @@ async function verifyWithServer(initData: string) {
 
         if (!response.ok || !data.ok) {
             switch(data.response.exception){
+                case "ERR_USER_NOT_IN_CHANNEL":
+                    router.replace("/join-channel");
+                    isLoading.value = false;
+                    break;
                 case "ERR_ACCOUNT_NOT_FOUND":
                     router.replace("/registration");
                     isLoading.value = false;
@@ -156,6 +160,10 @@ watch(() => route.path, () => {
         inGame.value = false;
     }
 })
+
+if(isLoading.value && (window.location.pathname === "/registration" || window.location.pathname === "/join-channel")){
+    window.location.pathname = "/";
+}
 
 window.onload = () => initTelegramApp();
 </script>

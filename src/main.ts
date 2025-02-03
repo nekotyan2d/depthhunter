@@ -12,12 +12,14 @@ import ChatPage from "./pages/chat.vue";
 import GamePage from "./pages/index.vue";
 import SettingsPage from "./pages/settings.vue";
 import RegistrationPage from "./pages/registration.vue";
+import JoinChannelPage from "./pages/join-channel.vue";
 
 const routes = [
     { path: "/chat", component: ChatPage },
     { path: "/", component: GamePage },
     { path: "/settings", component: SettingsPage },
     { path: "/registration", component: RegistrationPage },
+    { path: "/join-channel", component: JoinChannelPage },
 ];
 
 const router = createRouter({
