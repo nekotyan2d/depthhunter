@@ -3,6 +3,7 @@
         <ErrorPage :error="{message: app.$state.fatalError.message}" />
     </template>
     <template v-else>
+        <MessageBanner/>
         <div v-show="app.isLoading" class="loading">
             <div class="loader">
                 <Image src="img/loading.webp" alt="Загрузка" width="100" height="100" />
@@ -29,6 +30,7 @@ import eventBus from './utils/eventBus';
 import ErrorPage from './pages/error.vue';
 import { storeToRefs } from 'pinia';
 import Image from './components/Image.vue';
+import MessageBanner from './components/MessageBanner.vue';
 
 const sockets = useSocketsStore();
 const app = useAppStore();

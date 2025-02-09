@@ -1,5 +1,5 @@
 <template>
-    <div class="settings">
+    <div class="page">
         <h2>Настройки</h2>
         <section>
             <h3>Прочее</h3>
@@ -72,42 +72,40 @@ function changeBackendUrl(){
 }
 </script>
 <style lang="scss" scoped>
-.settings {
-    padding: 16px;
+@use "../assets/scss/page" as *;
 
-    .extra-settings-trigger {
-        height: 50px;
+.extra-settings-trigger {
+    height: 50px;
+}
+
+section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+
+    button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+    }
+    label {
+        display: block;
     }
 
-    section {
+    .row {
         display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 8px;
+        align-items: center;
+
+        input {
+            flex: 1;
+        }
 
         button {
             display: flex;
             align-items: center;
-            gap: 8px;
-            width: fit-content;
-        }
-        label {
-            display: block;
-        }
-
-        .row {
-            display: flex;
-            align-items: center;
-
-            input {
-                flex: 1;
-            }
-
-            button {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
+            justify-content: center;
         }
     }
 }

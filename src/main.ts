@@ -13,6 +13,8 @@ import GamePage from "./pages/index.vue";
 import SettingsPage from "./pages/settings.vue";
 import RegistrationPage from "./pages/registration.vue";
 import JoinChannelPage from "./pages/join-channel.vue";
+import NewMessagePage from "./pages/new-message.vue";
+import MessagesPage from "./pages/messages.vue";
 
 const routes = [
     { path: "/chat", component: ChatPage },
@@ -20,6 +22,8 @@ const routes = [
     { path: "/settings", component: SettingsPage },
     { path: "/registration", component: RegistrationPage },
     { path: "/join-channel", component: JoinChannelPage },
+    { path: "/new-message", component: NewMessagePage },
+    { path: "/messages", component: MessagesPage },
 ];
 
 const router = createRouter({

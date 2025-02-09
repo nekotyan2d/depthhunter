@@ -30,6 +30,9 @@ interface Window {
             openLink(url: string): () => void;
             openTelegramLink(url: string): () => void;
 
+            showPopup(params: { title: string, message: string, buttons: { id?: string, type?: "default" | "ok" | "close" | "cancel" | "destructive" }[] }): () => void;
+            showAlert(message: string, callback?: () => void): () => void;
+
             onEvent: (event: string, callback: (data: any) => void) => void;
         };
     };

@@ -28,4 +28,13 @@ declare global {
     type ApiResponse<T> = SuccessResponse<T> | ErrorResponse;
 
     type AssetsResponse = ApiResponse<Assets>;
+
+    interface MessageResponse {
+        message: {
+            text: string;
+            start_date: string;
+            end_date: string;
+            nick: string;
+        }[]
+    }
 }
