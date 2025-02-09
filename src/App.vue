@@ -51,6 +51,8 @@ async function initTelegramApp() {
         tg.setHeaderColor("#212121");
         tg.setBackgroundColor("#212121");
         tg.setBottomBarColor("#212121");
+
+        tg.requestFullscreen();
         
         tg.onEvent("settingsButtonClicked", () => {
             router.push('/settings');

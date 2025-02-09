@@ -1,5 +1,15 @@
 <template>
     <div class="settings">
+        <h2>Настройки</h2>
+        <section>
+            <h3>Прочее</h3>
+            <Button @click="clearCache">
+                <Icon icon="pixelarticons:reload" height="24" width="24"/>Сбросить кэш
+            </Button>
+            <Button @click="foundBug">
+                <Icon icon="pixelarticons:bug" height="24" width="24"/>Нашел ошибку?
+            </Button>
+        </section>
         <!-- TODO добавить настройки -->
         <!-- <div>
             <label for="chunkBorders">Показывать границы чанков</label>
@@ -9,16 +19,15 @@
             <label for="scaleSize">Изменять масштаб карты</label>
             <input id="scaleSize" type="checkbox" v-model="modifyScaleSize" />
         </div> -->
-        <Button @click="clearCache">Сбросить кэш</Button>
         <div class="extra-settings-trigger" @click="extraSettingsQuiz++"></div>
         <template v-if="extraSettingsQuiz >= 7">
             <section class="extra-settings">
                 <h3>Дополнительные настройки</h3>
                 <label for="backendUrl">URL бэкэнда</label>
                 <div class="row">
-                    <Input id="backendUrl" v-model="backendUrl"/>
+                    <Input id="backendUrl" v-model="backendUrl" />
                     <Button @click="changeBackendUrl">
-                        <Icon icon="pixelarticons:check" height="32px" width="32px"/>
+                        <Icon icon="pixelarticons:check" height="32px" width="32px" />
                     </Button>
                 </div>
             </section>
@@ -53,6 +62,10 @@ async function clearCache() {
     window.location.reload();
 }
 
+function foundBug() {
+    window.Telegram.WebApp.openLink("https://github.com/nekotyan2d/depthhunter/issues/new?template=Blank+issue");
+}
+
 function changeBackendUrl(){
     localStorage.setItem("settings", JSON.stringify({ backendUrl: backendUrl.value, ...JSON.parse(localStorage.getItem("settings") || "{}") }));
     window.location.reload();
@@ -67,6 +80,17 @@ function changeBackendUrl(){
     }
 
     section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+
+        button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: fit-content;
+        }
         label {
             display: block;
         }

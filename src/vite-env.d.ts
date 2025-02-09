@@ -25,6 +25,10 @@ interface Window {
             setBottomBarColor: (color: string) => void;
 
             disableVerticalSwipes: () => void;
+            requestFullscreen(): () => void;
+
+            openLink(url: string): () => void;
+            openTelegramLink(url: string): () => void;
 
             onEvent: (event: string, callback: (data: any) => void) => void;
         };
