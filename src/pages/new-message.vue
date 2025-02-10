@@ -46,7 +46,7 @@ async function sendMessage() {
         })
         if (data.ok) {
             message.value = "";
-            window.Telegram.WebApp.openTelegramLink(data.url);
+            window.Telegram.WebApp.openInvoice(data.url);
         } else {
             throw new Error(data.response.description);
         }
