@@ -2,7 +2,7 @@
     <div class="message">
         <div class="messages" @click="router.replace('/messages')">
             <div ref="text" class="text-slider">
-                <div v-for="message in messages" class="text"><span class="nick">{{ message.nick }}</span> {{ message.text }}</div>
+                <div v-for="message in messages" class="text">{{ message.nick }}: {{ message.text }}</div>
                 <div v-if="messages.length == 0" class="text">Попади сюда первым! Отправь сообщение в бегущую строку за
                     25
                     Stars!</div>
@@ -75,14 +75,8 @@ function slideText() {
 
     .text-slider {
         display: flex;
-        gap: 100vw;
+        gap: 50vw;
         width: fit-content;
-    }
-
-    .nick {
-        border-radius: 20px;
-        border: 1px solid white;
-        padding: 4px;
     }
 
     .text {

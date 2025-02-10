@@ -43,17 +43,21 @@ onUnmounted(() => {
 })
 
 const getTimeAgo = (date: string) => {
-    const past = new Date(date);
-    const diff = now.value.getTime() - past.getTime();
+    const future = new Date(date);
+    const diff = future.getTime() - now.value.getTime();
+
+    const dates: string[] = [];
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours > 0) return `${hours} ч назад`;
+    if (hours > 0) dates.push(`${hours} ч`);
 
-    const minutes = Math.floor(diff / (1000 * 60));
-    if (minutes > 0) return `${minutes} м назад`;
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (minutes > 0) dates.push(`${minutes} м`);
 
-    const seconds = Math.floor(diff / 1000);
-    return `${seconds} с назад`;
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    dates.push(`${seconds} с`);
+
+    return dates.length == 1 ? dates[0] : [dates[0], dates[1]].join(" ");
 };
 </script>
 <style lang="scss" scoped>
