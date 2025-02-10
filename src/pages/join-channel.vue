@@ -2,7 +2,7 @@
     <div class="join-channel">
         <template v-if="!clicked">
             <p>Присоединяйтесь к нашему телеграм-каналу, чтобы играть в DepthHunter! Поддержите разработчиков и первыми узнавайте о всех новостях и обновлениях.</p>
-            <Button class="subscribe-button"><a @click="clicked = true" href="https://t.me/DepthHunter" target="_blank">Подписаться</a></Button>
+            <Button @click="subscribe">Подписаться</Button>
         </template>
         <template v-else>
             <p>Спасибо за подписку! Перезагрузите игру и погружайтесь в мир DepthHunter!</p>
@@ -19,6 +19,11 @@ const clicked = ref(false);
 function reload() {
     window.location.pathname = "/";
 }
+
+function subscribe(){
+    clicked.value = true;
+    window.Telegram.WebApp.openTelegramLink("https://t.me/DepthHunter");
+}
 </script>
 <style lang="scss" scoped>
 .join-channel {
@@ -29,15 +34,5 @@ function reload() {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-
-    .subscribe-button {
-        padding: 0;
-
-        a {
-            padding: 8px 16px;
-            text-decoration: none;
-            color: inherit;
-        }
-    }
 }
 </style>
