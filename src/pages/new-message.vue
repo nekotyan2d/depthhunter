@@ -59,7 +59,6 @@ async function sendMessage() {
 @use "../assets/scss/page" as *;
 
 input {
-    margin-top: 2rem;
     width: 100%;
 }
 

@@ -1,3 +1,4 @@
 .page {
-    padding: 0 16px 16px 16px;
+    padding: 16px;
+    margin-top: calc(var(--tg-safe-area-inset-top) + var(--tg-content-safe-area-inset-top) + 2rem);
 }

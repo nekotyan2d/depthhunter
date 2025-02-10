@@ -1,5 +1,5 @@
 <template>
-    <div class="registration">
+    <div class="page">
         <div class="welcome">Добро пожаловать в Depth Hunter! Придумай ник чтобы начать игру</div>
         <Input v-model="nick" placeholder="Ник"/>
         <div class="error-text" v-if="!saveAllowed && nick.length">Ник занят, придумай другой!</div>
@@ -109,8 +109,9 @@ async function registerAccount(){
 </script>
 
 <style lang="scss" scoped>
-.registration {
-    padding: 8px 16px;
+@use "../assets/scss/page" as *;
+
+.page {
     display: flex;
     flex-direction: column;
     gap: 8px;

@@ -60,7 +60,6 @@ const getTimeAgo = (date: string) => {
 @use "../assets/scss/page" as *;
 
 .messages {
-    margin-top: 3rem;
     display: flex;
     flex-direction: column;
     gap: 8px;

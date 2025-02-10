@@ -84,6 +84,10 @@ section {
     gap: 8px;
     padding: 8px;
 
+    h3 {
+        margin: 0;
+    }
+
     button {
         display: flex;
         align-items: center;
