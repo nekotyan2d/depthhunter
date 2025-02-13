@@ -1001,12 +1001,26 @@ export const useGameStore = defineStore("game", () => {
 
     let actionInterval: NodeJS.Timeout | null = null;
 
+    function clearActionInterval() {
+        if (actionInterval != null) {
+            clearInterval(actionInterval);
+            actionInterval = null;
+        }
+    }
+
     function onPointerDown(event: PointerEvent) {
         if (!(event.target instanceof HTMLCanvasElement)) return;
+
+        clearActionInterval();
 
         actionInterval = setInterval(() => {
             onBlockPress(event);
         }, 250);
+
+        window.addEventListener("blur", clearActionInterval);
+        window.addEventListener("contextmenu", clearActionInterval);
+        document.addEventListener("visibilitychange", clearActionInterval);
+
         // если игрок кликнул на блок, то ждем 200 мс и если он не отпустил кнопку мыши, то считаем это за удержание (может это можно лучше сделать?)
         setTimeout(() => {
             if (actionInterval != null) return;
@@ -1014,13 +1028,12 @@ export const useGameStore = defineStore("game", () => {
         }, 200);
     }
 
-    function onPointerUp(event: PointerEvent) {
-        if (!(event.target instanceof HTMLCanvasElement)) return;
+    function onPointerUp() {
+        clearActionInterval();
 
-        if (actionInterval != null) {
-            clearInterval(actionInterval);
-            actionInterval = null;
-        }
+        window.removeEventListener("blur", clearActionInterval);
+        window.removeEventListener("contextmenu", clearActionInterval);
+        document.removeEventListener("visibilitychange", clearActionInterval);
     }
 
     function getBlockSideFromPlayer(
