@@ -63,7 +63,7 @@ async function clearCache() {
 }
 
 function foundBug() {
-    window.Telegram.WebApp.openLink("https://github.com/nekotyan2d/depthhunter/issues/new?template=Blank+issue");
+    window.Telegram.WebApp.openLink("https://github.com/nekotyan2d/depthhunter/issues/new?template=bug_report.md");
 }
 
 function changeBackendUrl(){
