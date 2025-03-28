@@ -1008,6 +1008,13 @@ export const useGameStore = defineStore("game", () => {
         }
     }
 
+    function handleContextMenuEvent(event: PointerEvent | MouseEvent) {
+        event.preventDefault();
+        if (!("pointerType" in event) || event.pointerType !== "mouse") return;
+
+        clearActionInterval();
+    }
+
     function onPointerDown(event: PointerEvent) {
         if (!(event.target instanceof HTMLCanvasElement)) return;
 
@@ -1018,7 +1025,7 @@ export const useGameStore = defineStore("game", () => {
         }, 250);
 
         window.addEventListener("blur", clearActionInterval);
-        window.addEventListener("contextmenu", clearActionInterval);
+        window.addEventListener("contextmenu", handleContextMenuEvent);
         document.addEventListener("visibilitychange", clearActionInterval);
 
         // если игрок кликнул на блок, то ждем 200 мс и если он не отпустил кнопку мыши, то считаем это за удержание (может это можно лучше сделать?)
@@ -1032,7 +1039,7 @@ export const useGameStore = defineStore("game", () => {
         clearActionInterval();
 
         window.removeEventListener("blur", clearActionInterval);
-        window.removeEventListener("contextmenu", clearActionInterval);
+        window.removeEventListener("contextmenu", handleContextMenuEvent);
         document.removeEventListener("visibilitychange", clearActionInterval);
     }
 
